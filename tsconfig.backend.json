@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "middleware.ts",
+    "src/server/**/*.ts",
+    "src/app/api/v1/**/*.ts",
+    "src/app/api/vergi-daireleri/route.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}
