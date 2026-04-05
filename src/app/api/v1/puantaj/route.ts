@@ -1,0 +1,26 @@
+import { NextRequest } from "next/server";
+import { createProtectedRouteHandler } from "@/server/lib/protected-route";
+import { ok } from "@/server/lib/response";
+import { badRequest } from "@/server/lib/errors";
+import { getPuantaj, upsertPuantaj } from "@/server/modules/puantaj/service";
+
+export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
+  const year = Number(request.nextUrl.searchParams.get("year"));
+  const month = Number(request.nextUrl.searchParams.get("month"));
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    throw badRequest("year ve month query parametreleri zorunludur.");
+  }
+  const rows = await getPuantaj(session.tenantId, year, month);
+  return ok(rows);
+});
+
+export const PUT = createProtectedRouteHandler(async (request: NextRequest, session) => {
+  const payload = (await request.json()) as Array<{
+    employeeId: string;
+    year: number;
+    month: number;
+    data: unknown;
+  }>;
+  await upsertPuantaj(session.tenantId, payload);
+  return ok({ updated: true });
+});
