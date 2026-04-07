@@ -3,7 +3,11 @@ import { createContext, useContext, useState, useCallback, useEffect, ReactNode 
 
 export interface Notification {
   id: string;
-  type: "sgk-giris" | "sgk-cikis" | "onay" | "red";
+  type: 
+    | "sgk-giris" | "sgk-cikis" | "onay" | "red" 
+    | "is-kazasi" | "sicil"
+    | "abonelik" | "odeme" | "sube-acilis" | "sube-kapanis"
+    | "yetkili-ekleme" | "yetkili-degisim" | "parola" | "tehlikeli-islem" | "genel";
   talepType?: "sgk-giris" | "sgk-cikis";
   title: string;
   message: string;
@@ -43,11 +47,25 @@ function mapDbNotification(n: {
 }): Notification {
   const d = new Date(n.createdAt);
   const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-  // Tip çıkarımı — title içeriğine göre
-  let type: Notification["type"] = "sgk-giris";
-  if (n.title.toLowerCase().includes("çıkış") || n.title.toLowerCase().includes("cikis")) type = "sgk-cikis";
-  else if (n.title.toLowerCase().includes("onay")) type = "onay";
-  else if (n.title.toLowerCase().includes("red")) type = "red";
+  
+  let type: Notification["type"] = "genel";
+  const titleLower = n.title.toLowerCase();
+  
+  if (titleLower.includes("giriş") || titleLower.includes("giris")) type = "sgk-giris";
+  else if (titleLower.includes("çıkış") || titleLower.includes("cikis")) type = "sgk-cikis";
+  else if (titleLower.includes("onay")) type = "onay";
+  else if (titleLower.includes("red")) type = "red";
+  else if (titleLower.includes("kaza")) type = "is-kazasi";
+  else if (titleLower.includes("sicil")) type = "sicil";
+  else if (titleLower.includes("abonelik")) type = "abonelik";
+  else if (titleLower.includes("ödeme") || titleLower.includes("odeme")) type = "odeme";
+  else if (titleLower.includes("şube açıldı") || titleLower.includes("sube acildi") || titleLower.includes("yeni şube")) type = "sube-acilis";
+  else if (titleLower.includes("şube kapatıldı") || titleLower.includes("sube kapatildi")) type = "sube-kapanis";
+  else if (titleLower.includes("yeni yetkili")) type = "yetkili-ekleme";
+  else if (titleLower.includes("yetkili değiştirildi") || titleLower.includes("yetkili degistirildi")) type = "yetkili-degisim";
+  else if (titleLower.includes("parola") || titleLower.includes("şifre") || titleLower.includes("sifre")) type = "parola";
+  else if (titleLower.includes("tehlikeli") || titleLower.includes("silme") || titleLower.includes("iptal")) type = "tehlikeli-islem";
+
   return {
     id: n.id,
     type,

@@ -89,7 +89,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       "SGK Çıkış Talebi",
       "İşveren Yetkilileri",
       "Şube İşlemleri",
-      "Departman İşlemleri"
+      "Departman İşlemleri",
+      "Birim İşlemleri"
     );
   } else if (setupStep === 1) {
     LOCKED_ITEMS.push(
@@ -99,7 +100,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       "SGK Giriş Talebi",
       "SGK Çıkış Talebi",
       "Şube İşlemleri",
-      "Departman İşlemleri"
+      "Departman İşlemleri",
+      "Birim İşlemleri"
     );
   }
 
@@ -114,6 +116,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       "Şube İstatistikleri",
       "Departman Listesi",
       "Yeni Departman Ekle",
+      "Birim Listesi",
+      "Yeni Birim Ekle",
       "SGK Giriş Talepleri",
       "SGK Çıkış Talepleri",
       "Personel Listesi",
@@ -133,6 +137,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       "Şube İstatistikleri",
       "Departman Listesi",
       "Yeni Departman Ekle",
+      "Birim Listesi",
+      "Yeni Birim Ekle",
       "SGK Giriş Talepleri",
       "SGK Çıkış Talepleri",
       "Personel Listesi",

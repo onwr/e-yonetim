@@ -98,6 +98,8 @@ function formatTalep(item: any, approvals?: any[]) {
     personelId,
     cikisTarihi,
     cikisNedeni,
+    evrakUrl: typeof payload.evrakUrl === 'string' ? payload.evrakUrl : undefined,
+    evraklar: Array.isArray(payload.evraklar) ? payload.evraklar : undefined,
   };
 }
 

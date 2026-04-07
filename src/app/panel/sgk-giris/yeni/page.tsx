@@ -84,7 +84,8 @@ const TextField = ({ label, value, onChange, placeholder = "", type = "text", re
 );
 
 const SelectField = ({ label, value, onChange, options, required = false, disabled = false, freeText = false }: any) => {
-  if (freeText || (Array.isArray(options) && options.length === 0 && freeText)) {
+  const isOptionsEmpty = !Array.isArray(options) || options.length === 0;
+  if (freeText && isOptionsEmpty) {
     return (
       <div className="flex flex-col gap-1.5">
         <label className={`text-[12px] font-extrabold uppercase tracking-wide ${required ? 'text-[#ef5a28]' : 'text-[#6b778c]'}`}>
@@ -731,8 +732,49 @@ export default function SgkGirisYeniTalepPage() {
           </div>
           <div className="grid grid-cols-3 gap-6">
             <SelectField label="Askerlik Durumu" value={formData.askerlikDurumu} onChange={(v: string) => updateField('askerlikDurumu', v)} options={['Tecilli', 'Yaptı', 'Muaf', 'Yapmadı']} required={isRequired('askerlikDurumu')} />
-            <DateField label="Tecil Bitiş Tarihi" value={formData.tecilBitisTarihi} onChange={(v: string) => updateField('tecilBitisTarihi', v)} disabled={formData.askerlikDurumu !== 'Tecilli'} />
-            <TextField label="Tecilin Bitmesine Kalan Süre" value={formData.kalanSure} onChange={(v: string) => updateField('kalanSure', v)} placeholder="Otomatik hesaplanır" disabled={formData.askerlikDurumu !== 'Tecilli'} />
+            <DateField label="Tecil Bitiş Tarihi" value={formData.tecilBitisTarihi} onChange={(v: string) => {
+              updateField('tecilBitisTarihi', v);
+              if (v) {
+                const bitis = new Date(v);
+                const bugun = new Date();
+                bugun.setHours(0, 0, 0, 0);
+                const fark = bitis.getTime() - bugun.getTime();
+                if (fark <= 0) {
+                  updateField('kalanSure', 'Tecil süresi dolmuş');
+                } else {
+                  const toplamGun = Math.ceil(fark / (1000 * 60 * 60 * 24));
+                  const yil = Math.floor(toplamGun / 365);
+                  const ay = Math.floor((toplamGun % 365) / 30);
+                  const gun = toplamGun % 30;
+                  const parcalar: string[] = [];
+                  if (yil > 0) parcalar.push(`${yil} yıl`);
+                  if (ay > 0) parcalar.push(`${ay} ay`);
+                  if (gun > 0) parcalar.push(`${gun} gün`);
+                  updateField('kalanSure', parcalar.join(' ') + ` (${toplamGun} gün)`);
+                }
+              } else {
+                updateField('kalanSure', '');
+              }
+            }} disabled={formData.askerlikDurumu !== 'Tecilli'} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-extrabold text-[#172b4d]">Tecilin Bitmesine Kalan Süre</label>
+              <div className={`w-full px-4 py-2.5 rounded-xl border-2 text-[13.5px] font-bold transition-all ${
+                formData.askerlikDurumu !== 'Tecilli'
+                  ? 'border-gray-100 bg-gray-50 text-gray-300'
+                  : formData.kalanSure === 'Tecil süresi dolmuş'
+                  ? 'border-red-200 bg-red-50 text-red-500'
+                  : formData.kalanSure
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-gray-200 bg-gray-50 text-gray-400'
+              }`}>
+                {formData.askerlikDurumu !== 'Tecilli'
+                  ? <span className="text-gray-300">—</span>
+                  : formData.kalanSure
+                  ? <span>⏱ {formData.kalanSure}</span>
+                  : <span className="text-gray-400 font-medium">Tarih seçince otomatik hesaplanır</span>
+                }
+              </div>
+            </div>
           </div>
         </div>
 

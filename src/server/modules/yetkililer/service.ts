@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/lib/errors";
 import bcrypt from "bcryptjs";
+import { sendNetgsmSms } from "@/server/lib/sms/netgsm";
 
 export async function listYetkililer(tenantId: string) {
   return prisma.user.findMany({
@@ -149,6 +150,37 @@ export async function inviteYetkili(
       body: `${payload.adSoyad} adli yetkili sisteme davet edildi.`,
     },
   });
+
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+
+  const smsMsg = `Sayin ${payload.adSoyad}, e-Yonetim (${tenant?.firmaKodu || "Kurum"}) sistemine yetkili olarak davet edildiniz.
+Firma Kodu: ${tenant?.firmaKodu || ""}
+Sifre: ${tempPassword}
+Giris: https://e-yonetim.com/giris`;
+
+  try {
+    const smsRes = await sendNetgsmSms({ telefon: payload.telefon, message: smsMsg });
+    
+    if (smsRes.success) {
+      console.log(`[NETGSM] Yetkili davet SMS'i Başarıyla gönderildi -> ${payload.telefon}`);
+    } else {
+      console.warn(`[SMS API UYARISI] NetGSM üzerinden davet SMS'i gönderilemedi. Terminal üzerinden bilgileri iletin...`);
+      console.log(`\n======================================================`);
+      console.log(`✉️ SİSTEM DAVET BİLGİLERİ (API BAŞARISIZ)`);
+      console.log(`======================================================`);
+      console.log(`Alıcı : ${payload.telefon}`);
+      console.log(`Mesaj :\n${smsMsg}`);
+      console.log(`======================================================\n`);
+    }
+  } catch (error) {
+    console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden bilgileri iletin...`);
+    console.log(`\n======================================================`);
+    console.log(`✉️ SİSTEM DAVET BİLGİLERİ (API BAŞARISIZ)`);
+    console.log(`======================================================`);
+    console.log(`Alıcı : ${payload.telefon}`);
+    console.log(`Mesaj :\n${smsMsg}`);
+    console.log(`======================================================\n`);
+  }
 
   return {
     id: newUser.id,

@@ -3,6 +3,7 @@ import { Clock, CheckCircle2, AlertTriangle, FileText, Activity, UserPlus, UserM
 import DataGridTemplate from "@/components/dashboard/DataGridTemplate";
 import { useState, useEffect, useRef } from "react";
 import IseGirisTalebiDokumuModal from "@/components/personel/Modals/IseGirisTalebiDokumuModal";
+import SgkCikisTalebiModal from "@/components/personel/Modals/SgkCikisTalebiModal";
 import { useNotifications } from "@/context/NotificationContext";
 import { useRouter } from "next/navigation";
 import { ApiErrorBanner, ApiLoadingText } from "@/components/common/ApiStatus";
@@ -304,8 +305,15 @@ export default function Page() {
         tableBody={TableBody}
       />
       {isLoading ? <ApiLoadingText message="Talepler yukleniyor..." className="py-6 text-center" /> : null}
-      {selectedTalep && (
+      {selectedTalep && activeModule === 'sgk-giris' && (
         <IseGirisTalebiDokumuModal
+          talep={selectedTalep}
+          onClose={() => setSelectedTalep(null)}
+          onApprove={(id) => handleAction(id, "ONAYLANAN")}
+        />
+      )}
+      {selectedTalep && activeModule === 'sgk-cikis' && (
+        <SgkCikisTalebiModal
           talep={selectedTalep}
           onClose={() => setSelectedTalep(null)}
           onApprove={(id) => handleAction(id, "ONAYLANAN")}

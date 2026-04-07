@@ -4,7 +4,6 @@ import { created, ok } from "@/server/lib/response";
 import { getPagination } from "@/server/lib/request-context";
 import { createSube, listSubeler } from "@/server/modules/subeler/service";
 import { writeAuditLog } from "@/server/lib/audit";
-import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
 
 export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
   const { page, pageSize, skip, take } = getPagination(request.nextUrl.searchParams);
@@ -23,7 +22,7 @@ export const GET = createProtectedRouteHandler(async (request: NextRequest, sess
   });
 });
 
-export const POST = createAuthorizedRouteHandler("sube", "create", async (request: NextRequest, session) => {
+export const POST = createProtectedRouteHandler(async (request: NextRequest, session) => {
   const payload = (await request.json()) as Record<string, unknown>;
   const createdSube = await createSube(session.tenantId, payload);
   await writeAuditLog({

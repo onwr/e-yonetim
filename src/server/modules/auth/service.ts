@@ -5,7 +5,7 @@ import { issueAuthCookies, verifyRefreshToken, readRefreshToken } from "@/server
 import { sendNetgsmSms } from "@/server/lib/sms/netgsm";
 import { normalizeTrPhone } from "@/server/lib/sms/phone";
 
-const prismaSmsVerification = (prisma as unknown as { smsVerification: any }).smsVerification;
+
 
 function maskPhone(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -36,7 +36,7 @@ async function createAndSendSmsVerification(input: {
   const codeHash = await bcrypt.hash(code, 10);
   const expiresAt = new Date(Date.now() + 3 * 60 * 1000); // 3 dakika
 
-  const record = await prismaSmsVerification.create({
+  const record = await prisma.smsVerification.create({
     data: {
       tenantId: input.tenantId,
       userId: input.userId,
@@ -47,19 +47,28 @@ async function createAndSendSmsVerification(input: {
     },
   });
 
-  const msg = `e-Yonetim dogrulama kodunuz: ${code}. Kod 3 dakika gecerli.`;
-  const smsRes = await sendNetgsmSms({ telefon: input.telefon, message: msg });
-  if (!smsRes.success) {
-    // NetGSM hatasında bile kod DB'de durur; kullanıcı yeniden isteyebilir.
-    throw unauthorized(`SMS gonderilemedi (NetGSM kod: ${smsRes.responseCode ?? "?"}).`);
+  const msg = `e-Yonetim dogrulama kodunuz: ${code}. Kod 3 dakika gecerlidir. Paylasmayin.`;
+  
+  try {
+    const smsRes = await sendNetgsmSms({ telefon: input.telefon, message: msg });
+    
+    if (smsRes.success) {
+      console.log(`[NETGSM] SMS Başarıyla gönderildi -> ${input.telefon}`);
+    } else {
+      console.warn(`[SMS API UYARISI] NetGSM üzerinden SMS gönderimi başarısız! Terminal üzerinden devam ediliyor...`);
+      console.log(`\n======================================================`);
+      console.log(`📱 SMS GÖNDERİLECEK TELEFON : ${input.telefon}`);
+      console.log(`🔑 OLUŞTURULAN SMS KODU     : ${code}`);
+      console.log(`======================================================\n`);
+    }
+  } catch (error) {
+    console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden devam ediliyor...`);
+    console.log(`\n======================================================`);
+    console.log(`📱 SMS GÖNDERİLECEK TELEFON : ${input.telefon}`);
+    console.log(`🔑 OLUŞTURULAN SMS KODU     : ${code}`);
+    console.log(`======================================================\n`);
   }
-  if ((smsRes as any).bypassVerify) {
-    await prismaSmsVerification.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    });
-    return { ok: true as const, bypassVerify: true as const, verificationId: record.id };
-  }
+
   return { ok: true as const, bypassVerify: false as const, verificationId: record.id };
 }
 
@@ -139,25 +148,17 @@ export async function registerUser(input: {
     },
   });
 
-  const sms = await createAndSendSmsVerification({
+  await createAndSendSmsVerification({
     tenantId: tenant.id,
     userId: createdUser.id,
     telefon: input.telefon,
     type: "register",
   });
 
-  if (sms.bypassVerify) {
-    await issueAuthCookies({ sub: createdUser.id, tenantId: createdUser.tenantId });
-    await prisma.user.update({
-      where: { id: createdUser.id },
-      data: { lastLoginAt: new Date() },
-    });
-  }
-
   return {
     telefon: input.telefon,
     firmaKodu: tenant.firmaKodu,
-    smsBypassed: sms.bypassVerify,
+    smsBypassed: false,
   };
 }
 
@@ -185,27 +186,19 @@ export async function loginUser(input: { firmaKodu: string; tckn: string; sifre:
     throw unauthorized("Firma kodu veya kullanici bilgileri hatali.");
   }
 
-  const sms = await createAndSendSmsVerification({
+  await createAndSendSmsVerification({
     tenantId: tenant.id,
     userId: user.id,
     telefon: user.telefon,
     type: "login",
   });
 
-  if (sms.bypassVerify) {
-    await issueAuthCookies({ sub: user.id, tenantId: user.tenantId });
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-  }
-
   return {
     telefon: maskPhone(user.telefon),
     rawTelefon: user.telefon,
     userId: user.id,
     tenantId: tenant.id,
-    smsBypassed: sms.bypassVerify,
+    smsBypassed: false,
   };
 }
 
@@ -215,8 +208,13 @@ export async function verifySmsAndCreateSession(input: {
   type: "register" | "login";
 }) {
   const normalized = normalizeTrPhone(input.telefon);
+  const altPhone = normalized.startsWith("0") ? normalized.slice(1) : normalized;
+
   const user = await prisma.user.findFirst({
-    where: { telefon: normalized, deletedAt: null },
+    where: { 
+      OR: [{ telefon: normalized }, { telefon: altPhone }],
+      deletedAt: null 
+    },
     include: { tenant: true },
   });
   if (!user) {
@@ -224,7 +222,7 @@ export async function verifySmsAndCreateSession(input: {
   }
 
   // En son, kullanılmamış ve süresi geçmemiş kod
-  const latest = await prismaSmsVerification.findFirst({
+  const latest = await prisma.smsVerification.findFirst({
     where: {
       tenantId: user.tenantId,
       userId: user.id,
@@ -244,14 +242,14 @@ export async function verifySmsAndCreateSession(input: {
 
   const okCode = await bcrypt.compare(input.smsKodu, latest.codeHash);
   if (!okCode) {
-    await prismaSmsVerification.update({
+    await prisma.smsVerification.update({
       where: { id: latest.id },
       data: { attempts: { increment: 1 } },
     });
     throw unauthorized("Hatali SMS kodu.");
   }
 
-  await prismaSmsVerification.update({
+  await prisma.smsVerification.update({
     where: { id: latest.id },
     data: { usedAt: new Date() },
   });
@@ -270,8 +268,13 @@ export async function verifySmsAndCreateSession(input: {
 
 export async function resendSmsVerification(input: { telefon: string; type: "register" | "login" }) {
   const normalized = normalizeTrPhone(input.telefon);
+  const altPhone = normalized.startsWith("0") ? normalized.slice(1) : normalized;
+
   const user = await prisma.user.findFirst({
-    where: { telefon: normalized, deletedAt: null },
+    where: { 
+      OR: [{ telefon: normalized }, { telefon: altPhone }],
+      deletedAt: null 
+    },
   });
   if (!user) {
     throw notFound("Telefon numarasi ile eslesen kullanici bulunamadi.");

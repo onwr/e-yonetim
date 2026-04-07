@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, X, Building2, Clock, ChevronDown } from "lucide-react";
 export interface YeniPersonelData {
   adSoyad: string;
@@ -29,6 +29,30 @@ export function YeniPersonelModal({ onAdd, onClose, submitText = "Kaydet" }: { o
   const [form, setForm] = useState<YeniPersonelForm>(FORM_EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof YeniPersonelForm, string>>>({});
   const [submitted, setSubmitted] = useState(false);
+  
+  const [subeListesi, setSubeListesi] = useState<any[]>([]);
+  const [departmanListesi, setDepartmanListesi] = useState<any[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const subeRes = await fetch("/api/v1/subeler?page=1&pageSize=200", { credentials: "include" });
+        if (subeRes.ok) {
+          const sJson = await subeRes.json();
+          if (sJson.success && Array.isArray(sJson.data)) setSubeListesi(sJson.data);
+        }
+        
+        const depRes = await fetch("/api/v1/departmanlar?page=1&pageSize=200", { credentials: "include" });
+        if (depRes.ok) {
+          const dJson = await depRes.json();
+          if (dJson.success && Array.isArray(dJson.data)) setDepartmanListesi(dJson.data);
+        }
+      } catch (e) {
+        console.error("Şube/Departman verileri çekilemedi", e);
+      }
+    })();
+  }, []);
+
   const set = (key: keyof YeniPersonelForm, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }));
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
@@ -115,25 +139,54 @@ export function YeniPersonelModal({ onAdd, onClose, submitText = "Kaydet" }: { o
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              {([
-                { key: "sube", label: "Şube", opts: ["Merkez Kampüs","Levent Ofisi","Kadıköy Şube"] },
-                { key: "departman", label: "Departman", opts: ["Yazılım","İnsan Kaynakları","Satış","Finans","Lojistik"] },
-                { key: "unvan", label: "Unvan", opts: ["Uzman","Kıdemli Uzman","Müdür","Direktör","Teknisyen"] },
-                { key: "takim", label: "Takım", opts: ["Ürün Ekibi","Destek","Operasyon"] },
-                { key: "yonetici", label: "Yönetici", opts: ["Ahmet Yılmaz","Ayşe Özgür"] },
-                { key: "lokasyon", label: "İş Yeri Lokasyonu", opts: ["İstanbul","Ankara","Uzaktan"] },
-              ] as { key: keyof YeniPersonelForm; label: string; opts: string[] }[]).map(f => (
-                <div key={f.key} className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">{f.label}</label>
+              {/* Şube */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">Şube</label>
+                {subeListesi.length > 0 ? (
                   <div className="relative">
-                    <select value={form[f.key]} onChange={e=>set(f.key,e.target.value)} className={selectCls}>
+                    <select value={form.sube} onChange={e=>set("sube",e.target.value)} className={selectCls}>
                       <option value="">Seçiniz</option>
-                      {f.opts.map(o=><option key={o}>{o}</option>)}
+                      {subeListesi.map(s=><option key={s.id} value={s.name || s.id}>{s.name || s.id}</option>)}
                     </select>
                     <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <input value={form.sube} onChange={e=>set("sube",e.target.value)} placeholder="Merkez" className={inputCls("sube")} />
+                )}
+              </div>
+              
+              {/* Departman */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">Departman</label>
+                {departmanListesi.length > 0 ? (
+                  <div className="relative">
+                    <select value={form.departman} onChange={e=>set("departman",e.target.value)} className={selectCls}>
+                      <option value="">Seçiniz</option>
+                      {departmanListesi.map(d=><option key={d.id} value={d.name || d.id}>{d.name || d.id}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                ) : (
+                  <input value={form.departman} onChange={e=>set("departman",e.target.value)} placeholder="Yazılım" className={inputCls("departman")} />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">Unvan</label>
+                <input value={form.unvan} onChange={e=>set("unvan",e.target.value)} placeholder="Uzman" className={inputCls("unvan")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">Takım</label>
+                <input value={form.takim} onChange={e=>set("takim",e.target.value)} placeholder="Ürün Ekibi" className={inputCls("takim")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">Yönetici</label>
+                <input value={form.yonetici} onChange={e=>set("yonetici",e.target.value)} placeholder="Ad Soyad" className={inputCls("yonetici")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">İş Yeri Lokasyonu</label>
+                <input value={form.lokasyon} onChange={e=>set("lokasyon",e.target.value)} placeholder="İstanbul" className={inputCls("lokasyon")} />
+              </div>
             </div>
           </section>
           <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>

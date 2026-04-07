@@ -7,9 +7,11 @@ export async function sendNetgsmSms(input: { telefon: string; message: string })
   const msgheader = env.NETGSM_HEADER ?? "HEDABILISIM";
 
   if (!usercode || !password) {
-    // Gelistirme ortaminda NetGSM bilgileri yoksa sessizce gec (UI akisi bozulmasin),
-    // ama loglayalim ki "neden SMS gitmiyor" sorusu net olsun.
     console.warn("[netgsm] NETGSM_USERNAME/NETGSM_PASSWORD eksik. SMS gonderimi atlandi.");
+    // Geliştirme ortamında bypass et ama production'da hata ver
+    if (process.env.NODE_ENV === "production") {
+      return { success: false as const, responseCode: "ENV_MISSING", raw: "" };
+    }
     return { success: true as const, skipped: true as const };
   }
 
@@ -25,30 +27,31 @@ export async function sendNetgsmSms(input: { telefon: string; message: string })
     dil: "TR",
   });
 
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: requestData.toString(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: requestData.toString(),
+    });
+  } catch (err) {
+    console.error("[netgsm] Ag hatasi:", err);
+    return { success: false as const, responseCode: "NETWORK_ERROR", raw: "" };
+  }
 
   const text = await res.text();
-  const [responseCode, jobId] = text.split(" ");
+  const parts = text.trim().split(" ");
+  const responseCode = parts[0];
+  const jobId = parts[1];
+
+  console.log("[netgsm] Yanit:", { responseCode, jobId, raw: text, httpStatus: res.status });
+
+  // Başarılı kodlar: 00=gönderildi, 01=gönderildi (ücretli), 02=gönderildi (kuyruğa alındı)
   if (responseCode === "00" || responseCode === "01" || responseCode === "02") {
     return { success: true as const, jobId, responseCode, raw: text };
   }
-  if (responseCode === "30") {
-    console.warn("[netgsm] responseCode=30. SMS dogrulama atlandi, dogrulanmis sayildi.", {
-      responseCode,
-      raw: text,
-      httpStatus: res.status,
-    });
-    return { success: true as const, bypassVerify: true as const, responseCode, raw: text };
-  }
-  console.warn("[netgsm] SMS gonderimi basarisiz", {
-    responseCode,
-    raw: text,
-    httpStatus: res.status,
-  });
+
+  // Tüm diğer kodlar hata — bypass YOK
+  console.error("[netgsm] SMS gonderimi basarisiz:", { responseCode, raw: text, httpStatus: res.status });
   return { success: false as const, responseCode, raw: text };
 }
-

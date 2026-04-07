@@ -3,7 +3,6 @@ import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { created, ok } from "@/server/lib/response";
 import { getPagination } from "@/server/lib/request-context";
 import { createDepartman, listDepartmanlar } from "@/server/modules/departmanlar/service";
-import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
 
 export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
   const { page, pageSize, skip, take } = getPagination(request.nextUrl.searchParams);
@@ -24,7 +23,7 @@ export const GET = createProtectedRouteHandler(async (request: NextRequest, sess
   });
 });
 
-export const POST = createAuthorizedRouteHandler("departman", "create", async (request: NextRequest, session) => {
+export const POST = createProtectedRouteHandler(async (request: NextRequest, session) => {
   const payload = (await request.json()) as Record<string, unknown>;
   const departman = await createDepartman(session.tenantId, payload);
   return created(departman, { requestId: session.requestId });

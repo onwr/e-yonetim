@@ -23,7 +23,7 @@ async function signToken(payload: SessionPayload, secret: string, expiresIn: str
 
 export async function issueAuthCookies(payload: SessionPayload) {
   const cookieStore = await cookies();
-  const accessToken = await signToken(payload, env.JWT_SECRET, "15m");
+  const accessToken = await signToken(payload, env.JWT_SECRET, "60m");
   const refreshToken = await signToken(payload, env.JWT_REFRESH_SECRET, "7d");
 
   cookieStore.set(ACCESS_COOKIE, accessToken, {
@@ -31,7 +31,7 @@ export async function issueAuthCookies(payload: SessionPayload) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 15,
+    maxAge: 60 * 60, // 60 dakika
   });
 
   cookieStore.set(REFRESH_COOKIE, refreshToken, {

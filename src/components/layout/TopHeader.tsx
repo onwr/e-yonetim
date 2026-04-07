@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Bell, Mail, ChevronDown, User, UserPlus, UserMinus, Activity, FileText, X, CheckCheck, LogOut, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Bell, Mail, ChevronDown, User, UserPlus, UserMinus, Activity, FileText, X, CheckCheck, LogOut, Lock, Building2, CreditCard, UserCog, Key, ShieldAlert } from "lucide-react";
 import { useNotifications } from "@/context/NotificationContext";
 import { useOnboarding } from "@/context/OnboardingContext";
 import { useRouter } from "next/navigation";
@@ -41,7 +41,15 @@ export default function TopHeader({ isSidebarOpen, toggleSidebar }: TopHeaderPro
       case "red": return <X className="w-4 h-4 text-red-500" />;
       case "is-kazasi": return <Activity className="w-4 h-4 text-red-500" />;
       case "sicil": return <FileText className="w-4 h-4 text-orange-500" />;
-      default: return <Bell className="w-4 h-4 text-gray-500" />;
+      case "abonelik": return <CreditCard className="w-4 h-4 text-blue-500" />;
+      case "odeme": return <CreditCard className="w-4 h-4 text-red-500" />;
+      case "sube-acilis": return <Building2 className="w-4 h-4 text-emerald-500" />;
+      case "sube-kapanis": return <Building2 className="w-4 h-4 text-orange-500" />;
+      case "yetkili-ekleme": return <UserPlus className="w-4 h-4 text-indigo-500" />;
+      case "yetkili-degisim": return <UserCog className="w-4 h-4 text-[#ef5a28]" />;
+      case "parola": return <Key className="w-4 h-4 text-[#172b4d]" />;
+      case "tehlikeli-islem": return <ShieldAlert className="w-4 h-4 text-red-600" />;
+      default: return <Bell className="w-4 h-4 text-gray-400" />;
     }
   };
 

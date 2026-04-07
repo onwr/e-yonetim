@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserMinus, Calendar, AlertCircle, CheckCircle2, ChevronDown, ArrowLeft, User } from "lucide-react";
+import { UserMinus, Calendar, AlertCircle, CheckCircle2, ChevronDown, ArrowLeft, User, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -27,6 +27,34 @@ export default function SgkCikisYeniTalepPage() {
   const [cikisNedeni, setCikisNedeni] = useState(CIKIS_NEDENLERI[0]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const [evraklar, setEvraklar] = useState([
+    { id: "istifa", isim: "İstifa Dilekçesi", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
+    { id: "fesih", isim: "Fesih Bildirimi", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
+    { id: "ibraname", isim: "İbraname / Çıkış Mutabakatı", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
+  ]);
+
+  const handleEvrakYukle = async (id: string, file: File) => {
+    if (!file) return;
+    setEvraklar(prev => prev.map(e => e.id === id ? { ...e, durum: "yukleniyor" } : e));
+    try {
+      const body = new FormData();
+      body.set("file", file, file.name);
+
+      const res = await fetch("/api/v1/documents/upload", { method: "POST", body });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success || !json?.data?.path) {
+        throw new Error(json?.error?.message || "Dosya yüklenemedi.");
+      }
+      setEvraklar(prev => prev.map(e => e.id === id ? { ...e, durum: "yuklendi", url: String(json.data.path) } : e));
+      toast.success(`${file.name} başarıyla yüklendi!`);
+    } catch (e) {
+      setEvraklar(prev => prev.map(e => e.id === id ? { ...e, durum: "bekliyor" } : e));
+      toast.error(e instanceof Error ? e.message : "Dosya yüklenemedi. Sistemsel bir hata oluştu veya bağlantınız koptu.");
+    }
+  };
+
+  const eksikEvraklar = evraklar.filter(e => e.durum !== "yuklendi");
 
   useEffect(() => {
     void (async () => {
@@ -57,8 +85,13 @@ export default function SgkCikisYeniTalepPage() {
   const seciliPersonel = personelListesi.find((p: any) => String(p.id) === personelId) || null;
 
   const handleSubmit = () => {
-    if (!personelId) { toast.error("Lütfen personel seçiniz."); return; }
+    if (personelListesi.length === 0) { toast.error("Şu anda sistemde kayıtlı aktif bir personel bulunmuyor."); return; }
+    if (!personelId) { toast.error("Lütfen çıkışı yapılacak personeli seçiniz."); return; }
     if (!cikisTarihi) { toast.error("Lütfen çıkış tarihini giriniz."); return; }
+    if (eksikEvraklar.length > 0) {
+      toast.error(`Eksik evrak var: Lütfen ${eksikEvraklar.map(e => e.isim).join(", ")} belgelerini eksiksiz yükleyiniz.`);
+      return;
+    }
 
     setSubmitting(true);
     const now = new Date();
@@ -79,6 +112,8 @@ export default function SgkCikisYeniTalepPage() {
       cikisNedeni,
       cikisTarihi,
       personelId: seciliPersonel?.id,
+      evrakUrl: evraklar[0].url,
+      evraklar: evraklar.map(e => ({ isim: e.isim, dosyaUrl: e.url, durum: e.durum })),
     };
 
     void (async () => {
@@ -157,7 +192,11 @@ export default function SgkCikisYeniTalepPage() {
                 onChange={(e) => setPersonelId(e.target.value)}
                 className="w-full appearance-none px-4 py-2.5 rounded-xl border-2 border-gray-100 hover:border-gray-200 focus:border-[#ef5a28] focus:ring-4 focus:ring-[#ef5a28]/10 outline-none text-[13px] font-medium text-[#172b4d] transition-all bg-white"
               >
-                <option value="">Personel seçiniz</option>
+                {personelListesi.length === 0 ? (
+                  <option value="">Sistemde kayıtlı personel bulunamadı</option>
+                ) : (
+                  <option value="">Personel seçiniz</option>
+                )}
                 {personelListesi.map((p: any) => (
                   <option key={p.id} value={String(p.id)}>
                     {p.adSoyad} — {p.tckn}
@@ -197,6 +236,42 @@ export default function SgkCikisYeniTalepPage() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
+            </div>
+          </div>
+
+          {/* Evrak Yükleme */}
+          <div className="flex flex-col gap-3 pt-2">
+            <label className="text-[12px] font-extrabold text-[#172b4d] flex items-center gap-1">
+              Zorunlu Çıkış Evrakları <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {evraklar.map((evrak) => (
+                <div key={evrak.id} className="flex flex-col items-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-4 bg-gray-50/50 text-center transition-colors hover:border-gray-300">
+                  <div className="flex-shrink-0 w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
+                    <Upload className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="flex-1 w-full flex flex-col gap-1 items-center justify-center mt-1">
+                    <span className="text-[11px] font-extrabold text-[#172b4d]">{evrak.isim}</span>
+                    {evrak.durum === "yuklendi" ? (
+                      <div className="flex flex-col items-center justify-center gap-1.5 mt-1.5">
+                        <p className="text-[10.5px] font-black text-green-600 flex items-center gap-1 justify-center"><CheckCircle2 className="w-3.5 h-3.5" /> Yüklendi</p>
+                        <button onClick={() => setEvraklar(prev => prev.map(e => e.id === evrak.id ? { ...e, durum: "bekliyor", url: null } : e))} className="text-[10px] font-extrabold text-red-500 hover:underline tracking-wide bg-red-50 px-2.5 py-1 rounded border border-red-100">KALDIR</button>
+                      </div>
+                    ) : evrak.durum === "yukleniyor" ? (
+                      <p className="text-[11px] font-bold text-[#ef5a28] flex items-center gap-1.5 mt-2 justify-center"><div className="w-3 h-3 border-2 border-[#ef5a28]/40 border-t-[#ef5a28] rounded-full animate-spin" /> Yükleniyor...</p>
+                    ) : (
+                      <div className="flex flex-col items-center mt-1.5">
+                        <label className="text-[10.5px] font-extrabold text-[#0052cc] hover:underline cursor-pointer bg-blue-50 hover:bg-blue-100 transition-colors px-3 py-1.5 rounded-lg border border-blue-200 uppercase tracking-wide">
+                          Dosya Seç
+                          <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) handleEvrakYukle(evrak.id, e.target.files[0]);
+                          }} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

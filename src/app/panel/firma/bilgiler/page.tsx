@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Building2, MapPin, Folder, CloudUpload, CheckCircle2, Eye, RefreshCw, Info, Lock, Unlock, ShieldAlert } from "lucide-react";
+import { Building2, MapPin, Folder, CloudUpload, CheckCircle2, Eye, RefreshCw, Info, Lock, Unlock, ShieldAlert, Loader2 } from "lucide-react";
 import { useOnboarding, type FirmaDataType } from "@/context/OnboardingContext";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ type FileState = null | { name: string; date: string; url: string };
 
 export default function FirmaBilgileriPage() {
   const { isSetupComplete, completeFirmaSetup, completeSetup, firmaData, setFirmaData } = useOnboarding();
+  const [uploadingKeys, setUploadingKeys] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   const formData = firmaData?.formData || {
@@ -161,6 +162,7 @@ export default function FirmaBilgileriPage() {
   const handleFileUpload = async (key: keyof typeof files, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadingKeys(prev => new Set(prev).add(key));
       try {
         const body = new FormData();
         body.set("file", file, file.name);
@@ -182,6 +184,8 @@ export default function FirmaBilgileriPage() {
         toast.success(`${file.name} başarıyla yüklendi.`);
       } catch (err: any) {
         toast.error(err?.message || "Dosya yüklenemedi. Lütfen tekrar deneyin.");
+      } finally {
+        setUploadingKeys(prev => { const s = new Set(prev); s.delete(key); return s; });
       }
     }
   };
@@ -195,7 +199,7 @@ export default function FirmaBilgileriPage() {
       formData.adres, formData.postaKodu, formData.telefon, formData.ePosta
     ];
 
-    const requiredFiles = [files.vergiLevhasi, files.imzaSirkuleri];
+    const requiredFiles = [files.vergiLevhasi, files.ticaretSicil, files.imzaSirkuleri];
 
     return requiredText.every(val => val.trim().length > 0) && requiredFiles.every(val => val !== null);
   };
@@ -214,20 +218,41 @@ export default function FirmaBilgileriPage() {
 
   // --- COMPONENT HELPERS ---
   const DosyaYuklemeKarti = ({ keyName, label }: { keyName: keyof typeof files, label: string }) => {
-    const isRequired = keyName !== "ticaretSicil";
+    const isRequired = true;
     const fileState = files[keyName];
+    const isUploading = uploadingKeys.has(keyName);
     const emptyBorderClass = isRequired && !fileState ? "border-red-300 bg-red-50 hover:bg-red-100" : "border-[#e1e5ee] bg-white hover:bg-gray-50";
 
     return (
       <div className="flex flex-col gap-2 relative">
         <div className="flex items-center gap-2 mb-0.5">
-          <label className={`text-[12.5px] font-extrabold ${isRequired && !fileState ? 'text-red-500' : 'text-[#172b4d]'}`}>
+          <label className={`text-[12.5px] font-extrabold ${isUploading ? 'text-[#0052cc]' : isRequired && !fileState ? 'text-red-500' : 'text-[#172b4d]'}`}>
             {label} (PDF)
           </label>
-          {fileState && <Lock className="w-3.5 h-3.5 text-orange-400" />}
+          {fileState && !isUploading && <Lock className="w-3.5 h-3.5 text-orange-400" />}
+          {isUploading && <Loader2 className="w-3.5 h-3.5 text-[#0052cc] animate-spin" />}
         </div>
 
-        {fileState ? (
+        {isUploading ? (
+          // YÜKLENİYOR HALİ
+          <div className="border-2 border-dashed border-[#0052cc]/40 bg-blue-50/60 rounded-2xl p-6 flex flex-col items-center justify-center min-h-[160px] relative overflow-hidden">
+            {/* Animasyonlu arka plan dalgası */}
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-100/80 to-transparent animate-[shimmer_1.5s_infinite] -translate-x-full" style={{backgroundSize: '200% 100%'}} />
+            </div>
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="w-14 h-14 rounded-full bg-[#0052cc]/10 flex items-center justify-center mb-3">
+                <Loader2 className="w-7 h-7 text-[#0052cc] animate-spin" />
+              </div>
+              <span className="text-[13px] font-extrabold text-[#0052cc] mb-1">Yükleniyor...</span>
+              <span className="text-[11px] font-medium text-[#0052cc]/60">Lütfen bekleyin</span>
+              {/* Progress bar animasyonu */}
+              <div className="w-32 h-1.5 bg-blue-100 rounded-full mt-4 overflow-hidden">
+                <div className="h-full bg-[#0052cc] rounded-full animate-[progress_1.5s_ease-in-out_infinite]" />
+              </div>
+            </div>
+          </div>
+        ) : fileState ? (
           // YÜKLENMİŞ HALİ
           <div className="border border-green-500 bg-[#effcf3] rounded-3xl p-6 flex flex-col items-center justify-center min-h-[160px] animate-fade-in relative group border-dashed">
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-green-500 mb-2 transform group-hover:scale-110 transition-transform">
@@ -536,7 +561,7 @@ export default function FirmaBilgileriPage() {
               <span className="w-4 h-4 rounded ring-2 ring-gray-400 flex items-center justify-center mr-1">
                 <span className="w-2 h-2 bg-gray-400 rounded-sm"></span>
               </span>
-              Lütfen Zorunlu Alanları (Web Sitesi ve Ticaret Sicil hariç) Doldurunuz
+              Lütfen Zorunlu Alanları (Web Sitesi hariç) Doldurunuz
             </div>
           )}
         </div>

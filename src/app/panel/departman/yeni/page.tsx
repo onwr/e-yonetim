@@ -1,13 +1,15 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronRight, Building2, GitFork, Check, Calendar, ChevronDown } from "lucide-react";
+import { ChevronRight, Building2, GitFork, Check, Calendar, ChevronDown, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast, Toaster } from "sonner";
 
 export default function YeniDepartmanEklePage() {
   const router = useRouter();
   const [personeller, setPersoneller] = useState<any[]>([]);
+  const [yetkililer, setYetkililer] = useState<any[]>([]);
   const [subeler, setSubeler] = useState<any[]>([]);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -33,6 +35,14 @@ export default function YeniDepartmanEklePage() {
       } catch {}
 
       try {
+        const yetkiliRes = await fetch("/api/v1/yetkililer", { credentials: "include" });
+        const yetkiliJson = (await yetkiliRes.json()) as { success?: boolean; data?: any[] };
+        if (yetkiliRes.ok && yetkiliJson.success && Array.isArray(yetkiliJson.data)) {
+          setYetkililer(yetkiliJson.data);
+        }
+      } catch {}
+
+      try {
         const response = await fetch("/api/v1/subeler?page=1&pageSize=200", {
           credentials: "include",
         });
@@ -54,7 +64,10 @@ export default function YeniDepartmanEklePage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subeId || !departmanAdi) return;
+    if (!subeId || !departmanAdi) {
+      toast.error("Lütfen şube ve departman adını doldurunuz.");
+      return;
+    }
 
     void (async () => {
       try {
@@ -70,14 +83,15 @@ export default function YeniDepartmanEklePage() {
             yetkiliId: yetkiliId || undefined,
           }),
         });
+        const json = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error("Departman API kaydi basarisiz.");
+          const msg = json?.error?.message || json?.message || `Sunucu hatası: ${response.status}`;
+          toast.error(`Departman kaydedilemedi: ${msg}`);
+          return;
         }
         setIsSuccessModalOpen(true);
-        return;
-      } catch (error) {
-        console.error("Kayıt hatası:", error);
-        return;
+      } catch (error: any) {
+        toast.error(error?.message || "Bağlantı hatası. Lütfen tekrar deneyin.");
       }
     })();
   };
@@ -89,6 +103,7 @@ export default function YeniDepartmanEklePage() {
 
   return (
     <div className="flex flex-col animate-fade-in w-full pb-20 max-w-[1000px] mx-auto font-sans mt-2">
+      <Toaster richColors position="top-right" />
       
       {/* Breadcrumb & Header */}
       <div className="flex flex-col mb-8">
@@ -191,15 +206,33 @@ export default function YeniDepartmanEklePage() {
 
               <div className="flex flex-col relative w-full">
                  <label className="text-[11px] font-black text-[#0b1b42] uppercase tracking-wide mb-2 block">Departman Yetkilisi</label>
-                 <select 
+                 <select
                    value={yetkiliId}
                    onChange={e => setYetkiliId(e.target.value)}
                    className="w-full h-14 pl-5 pr-12 rounded-xl border border-gray-200 outline-none focus:border-[#0052cc] focus:ring-1 focus:ring-[#0052cc] text-[13.5px] font-semibold text-[#0b1b42] appearance-none cursor-pointer transition-all bg-white shadow-sm"
                  >
-                    <option value="" disabled>Yetkili seçin (isteğe bağlı)</option>
-                    {personeller.map(p => (
-                       <option key={p.id} value={p.id}>{p.adSoyad} — {p.unvan}</option>
-                    ))}
+                    <option value="">Yetkili seçin (isteğe bağlı)</option>
+                    {yetkililer.length > 0 && (
+                      <optgroup label="── İşveren Yetkilileri">
+                        {yetkililer.map(y => (
+                          <option key={y.id} value={y.id}>
+                            {y.adSoyad}{y.unvan ? ` — ${y.unvan}` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {personeller.length > 0 && (
+                      <optgroup label="── Yetkili Kişiler (Personel)">
+                        {personeller.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.adSoyad}{p.unvan ? ` — ${p.unvan}` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {yetkililer.length === 0 && personeller.length === 0 && (
+                      <option disabled>Henüz kayıtlı yetkili bulunamadı</option>
+                    )}
                  </select>
                  <ChevronDown className="w-5 h-5 text-gray-400 absolute right-4 top-[38px] pointer-events-none" />
               </div>

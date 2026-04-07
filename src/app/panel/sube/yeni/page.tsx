@@ -67,7 +67,8 @@ export default function SubeEklePage() {
     "Daha Sonra Belirlenecek",
     adSoyad
   ]);
-  const [newYetkili, setNewYetkili] = useState({ adSoyad: "", tckn: "", telefon: "", ePosta: "" });
+  const [yetkiliSaving, setYetkiliSaving] = useState(false);
+  const [newYetkili, setNewYetkili] = useState({ adSoyad: "", tckn: "", telefon: "", ePosta: "", sifre: "" });
 
   // API Fetches
   useEffect(() => {
@@ -154,11 +155,53 @@ export default function SubeEklePage() {
       toast.error("Lütfen Yetkili Adı Soyadı giriniz.");
       return;
     }
-    setYetkiliListesi(prev => [...prev, newYetkili.adSoyad]);
-    setFormData(prev => ({ ...prev, subeYetkilisi: newYetkili.adSoyad }));
-    setIsYetkiliModalOpen(false);
-    setNewYetkili({ adSoyad: "", tckn: "", telefon: "", ePosta: "" });
-    toast.success("Yeni yetkili şube profiline atandı!");
+    if (!newYetkili.tckn || newYetkili.tckn.length !== 11) {
+      toast.error("Geçerli bir 11 haneli TCKN giriniz.");
+      return;
+    }
+    if (!newYetkili.ePosta.trim()) {
+      toast.error("E-Posta adresi zorunludur.");
+      return;
+    }
+    if (!newYetkili.sifre || newYetkili.sifre.length < 6) {
+      toast.error("Şifre en az 6 karakter olmalıdır.");
+      return;
+    }
+
+    setYetkiliSaving(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/yetkililer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            adSoyad: newYetkili.adSoyad,
+            tckn: newYetkili.tckn,
+            telefon: newYetkili.telefon,
+            eposta: newYetkili.ePosta,
+            sifre: newYetkili.sifre,
+            unvan: "Şube Yetkilisi",
+            scope: "sube",
+          }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error?.message || json?.message || `Sunucu hatası: ${res.status}`;
+          toast.error(`Yetkili eklenemedi: ${msg}`);
+          return;
+        }
+        setYetkiliListesi(prev => [...prev, newYetkili.adSoyad]);
+        setFormData(prev => ({ ...prev, subeYetkilisi: newYetkili.adSoyad }));
+        setIsYetkiliModalOpen(false);
+        setNewYetkili({ adSoyad: "", tckn: "", telefon: "", ePosta: "", sifre: "" });
+        toast.success("Yeni yetkili başarıyla eklendi ve şube profiline atandı!");
+      } catch (err: any) {
+        toast.error(err?.message || "Bağlantı hatası. Lütfen tekrar deneyin.");
+      } finally {
+        setYetkiliSaving(false);
+      }
+    })();
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,11 +234,14 @@ export default function SubeEklePage() {
           credentials: "include",
           body: JSON.stringify(newSube),
         });
+        const json = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error("API kayit hatasi");
+          const msg = json?.error?.message || json?.message || `Sunucu hatası: ${response.status}`;
+          toast.error(`Şube kaydedilemedi: ${msg}`);
+          return;
         }
-      } catch (err) {
-        toast.error("Sube kaydi API uzerinde basarisiz oldu.");
+      } catch (err: any) {
+        toast.error(err?.message || "Bağlantı hatası. Lütfen tekrar deneyin.");
         return;
       }
 
@@ -510,53 +556,79 @@ export default function SubeEklePage() {
 
       {/* Yeni Yetkili Ekle Modal */}
       {isYetkiliModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0b1b42]/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col scale-100 p-8 pt-6">
-            <div className="pb-6 border-b border-gray-100 flex flex-col gap-1.5">
-              <h3 className="text-[20px] font-black tracking-tight text-[#0b1b42]">Yeni Şube Yetkilisi Ekle</h3>
-              <p className="text-[12.5px] font-semibold text-[#6b778c]">Bu kullanıcı eğer sistemde kayıtlı değilse yeni hesap daveti oluşturulacaktır.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+            {/* Header - sabit */}
+            <div className="px-8 pt-7 pb-5 border-b border-gray-100 flex flex-col gap-1.5 shrink-0">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-9 h-9 rounded-xl bg-[#0052cc] flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                </div>
+                <h3 className="text-[20px] font-black tracking-tight text-[#0b1b42]">Yeni Şube Yetkilisi Ekle</h3>
+              </div>
+              <p className="text-[12.5px] font-semibold text-[#6b778c] pl-12">Bu kullanıcı eğer sistemde kayıtlı değilse yeni hesap daveti oluşturulacaktır.</p>
             </div>
             
-            <div className="py-6 flex flex-col gap-6">
+            {/* Kaydırılabilir içerik */}
+            <div className="overflow-y-auto flex-1 px-8 py-6 flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-extrabold text-[#0b1b42]">Ad Soyad</label>
-                <input 
-                  type="text" value={newYetkili.adSoyad} onChange={(e) => setNewYetkili(prev => ({...prev, adSoyad: e.target.value}))} 
-                  placeholder="Örn: Ali Yılmaz" className={getInputClass()} 
+                <label className="text-[13px] font-extrabold text-[#0b1b42]">Ad Soyad <span className="text-red-500">*</span></label>
+                <input
+                  type="text" value={newYetkili.adSoyad} onChange={(e) => setNewYetkili(prev => ({...prev, adSoyad: e.target.value}))}
+                  placeholder="Örn: Ali Yılmaz" className={getInputClass()}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-extrabold text-[#0b1b42]">TCKN</label>
-                <input 
+                <label className="text-[13px] font-extrabold text-[#0b1b42]">TCKN <span className="text-red-500">*</span></label>
+                <input
                   type="text" value={newYetkili.tckn} onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, "").slice(0, 11);
                     setNewYetkili(prev => ({...prev, tckn: val}));
-                  }} 
-                  placeholder="11 Haneli TCKN" className={getInputClass()} 
+                  }}
+                  placeholder="11 Haneli TCKN" className={getInputClass()}
                 />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[13px] font-extrabold text-[#0b1b42]">Telefon</label>
-                <input 
-                  type="text" value={newYetkili.telefon} onChange={handleModalPhoneChange} 
-                  placeholder="05XX XXX XX XX" className={getInputClass()} 
+                <input
+                  type="text" value={newYetkili.telefon} onChange={handleModalPhoneChange}
+                  placeholder="05XX XXX XX XX" className={getInputClass()}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-extrabold text-[#0b1b42]">E-Posta</label>
-                <input 
-                  type="email" value={newYetkili.ePosta} onChange={(e) => setNewYetkili(prev => ({...prev, ePosta: e.target.value}))} 
-                  placeholder="E-Posta Adresi" className={getInputClass()} 
+                <label className="text-[13px] font-extrabold text-[#0b1b42]">E-Posta <span className="text-red-500">*</span></label>
+                <input
+                  type="email" value={newYetkili.ePosta} onChange={(e) => setNewYetkili(prev => ({...prev, ePosta: e.target.value}))}
+                  placeholder="E-Posta Adresi" className={getInputClass()}
                 />
               </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[13px] font-extrabold text-[#0b1b42]">Şifre <span className="text-red-500">*</span></label>
+                <input
+                  type="password" value={newYetkili.sifre} onChange={(e) => setNewYetkili(prev => ({...prev, sifre: e.target.value}))}
+                  placeholder="En az 6 karakter" className={getInputClass()}
+                />
+                <span className="text-[11px] font-semibold text-gray-400">Yetkili bu şifre ile sisteme giriş yapacaktır.</span>
+              </div>
             </div>
-            
-            <div className="pt-4 flex items-center justify-end gap-3 mt-auto">
-              <button onClick={() => setIsYetkiliModalOpen(false)} className="text-[#6b778c] hover:bg-gray-100 font-bold text-[14px] px-6 py-3.5 rounded-xl transition-colors">
+
+            {/* Footer - sabit */}
+            <div className="px-8 py-5 flex items-center justify-end gap-3 border-t border-gray-100 shrink-0">
+              <button
+                onClick={() => { setIsYetkiliModalOpen(false); setNewYetkili({ adSoyad: "", tckn: "", telefon: "", ePosta: "", sifre: "" }); }}
+                disabled={yetkiliSaving}
+                className="text-[#6b778c] hover:bg-gray-100 font-bold text-[14px] px-6 py-3 rounded-xl transition-colors disabled:opacity-50"
+              >
                 İptal
               </button>
-              <button onClick={handleAddYetkili} className="bg-[#ef5a28] hover:bg-[#d94f20] text-white font-extrabold text-[14px] px-8 py-3.5 rounded-xl shadow-md transition-all active:scale-95">
-                Onayla
+              <button
+                onClick={handleAddYetkili}
+                disabled={yetkiliSaving}
+                className="bg-[#ef5a28] hover:bg-[#d94f20] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-extrabold text-[14px] px-8 py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
+              >
+                {yetkiliSaving ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Kaydediliyor...</>
+                ) : "Onayla"}
               </button>
             </div>
           </div>
