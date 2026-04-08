@@ -173,7 +173,7 @@ export default function Page() {
       </div>
 
       {/* Table Header */}
-      <div className="w-full bg-[#ef5a28] rounded-xl rounded-b-none py-3.5 px-6 flex items-center text-white text-[12px] font-extrabold tracking-wider mt-2 border-b-2 border-[#d94a1c]">
+      <div className="hidden lg:flex w-full bg-[#ef5a28] rounded-xl rounded-b-none py-3.5 px-6 items-center text-white text-[12px] font-extrabold tracking-wider mt-2 border-b-2 border-[#d94a1c]">
         <div className="w-12 text-center shrink-0">#</div>
         <div className="w-[35%] pl-4 border-l border-white/20">PERSONEL KİMLİK BİLGİLERİ</div>
         <div className="flex-1 pl-4 border-l border-white/20">FİRMA, KADRO VE İŞE GİRİŞ BİLGİLERİ</div>
@@ -185,13 +185,13 @@ export default function Page() {
         {isLoading ? <ApiLoadingText message="Talepler yukleniyor..." className="py-12 flex items-center justify-center" /> : null}
         {currentData.length > 0 ? (
           currentData.map((item, index) => (
-            <div key={item.id} className="w-full flex items-stretch rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-white">
-              <div className="w-12 shrink-0 flex items-center justify-center border-r border-gray-200 bg-white">
-                <span className="text-[15px] font-bold text-gray-400">{index + 1}</span>
+            <div key={item.id} className="w-full flex items-stretch flex-col lg:flex-row rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-white">
+              <div className="w-full lg:w-12 py-3 lg:py-0 shrink-0 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50 lg:bg-white text-center">
+                <span className="text-[15px] font-bold text-gray-400">#{index + 1}</span>
               </div>
               
               {/* Left Column */}
-              <div className="w-[35%] p-6 flex flex-col border-r border-gray-100 bg-white">
+              <div className="w-full lg:w-[35%] p-6 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-100 bg-white">
                 <div className="flex flex-col items-center mb-6">
                   <div className="w-24 h-24 bg-gray-100 rounded-full border border-gray-200 flex items-center justify-center shadow-sm mb-4">
                     <UserCircle2 className="w-12 h-12 text-gray-300 stroke-[1.5]" />
@@ -271,7 +271,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-[13px] mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-[13px] mb-8">
                   {/* Sol Kadro Listesi */}
                   <div className="flex flex-col gap-3">
                     <div className="grid grid-cols-[110px_10px_1fr]">
@@ -364,12 +364,12 @@ export default function Page() {
               </div>
 
               {/* İşlem Menü Column */}
-              <div className="w-32 shrink-0 border-l border-gray-100 flex items-center justify-center bg-gray-50/50">
+              <div className="w-full lg:w-32 py-4 lg:py-0 shrink-0 border-t lg:border-t-0 lg:border-l border-gray-100 flex items-center justify-center bg-gray-50/50">
                  <button
                    onClick={() => {
                      router.push(`/panel/personel/1?tckn=${item.tckn}`);
                    }}
-                   className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white hover:shadow-sm text-gray-500 transition-all"
+                   className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white hover:shadow-sm text-gray-500 transition-all cursor-pointer"
                    title="Personel Bilgisine Git"
                  >
                     <MoreVertical className="w-5 h-5" />

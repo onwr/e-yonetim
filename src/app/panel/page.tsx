@@ -74,7 +74,7 @@ function OnboardingScreen({ setupStep }: { setupStep: number }) {
             gerekmektedir. Kurulum bitene kadar diğer sayfalar <span className="text-red-500 font-bold">kilitli kalacaktır</span>.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-5 w-full max-w-2xl mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl mt-2">
           {steps.map((s) => (
             <button
               key={s.step}
@@ -298,7 +298,7 @@ export default function Dashboard() {
             {/* Aktif/Pasif Donut */}
             <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm w-full p-6 lg:p-8 min-h-[340px] flex flex-col text-[#172b4d]">
               <h2 className="text-[14.5px] font-bold mb-8">Aktif &amp; Pasif Personel Dağılımı</h2>
-              <div className="flex-1 flex items-center w-full">
+              <div className="flex-1 flex flex-col sm:flex-row items-center w-full">
                 <div className="flex-1 flex justify-center relative">
                   <svg viewBox="0 0 36 36" className="w-36 h-36">
                     <path className="text-gray-100 stroke-current" strokeWidth="6" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>

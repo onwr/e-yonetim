@@ -57,6 +57,7 @@ model Tenant {
   restrictedEmployees RestrictedEmployee[]
   requests            Request[]
   payrollEntries      PayrollEntry[]
+  puantajLocks        PuantajLock[]
   documents           Document[]
   notifications       Notification[]
   auditLogs           AuditLog[]
@@ -368,4 +369,17 @@ model AuditLog {
   createdAt  DateTime @default(now())
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
   user       User?    @relation(fields: [userId], references: [id])
+}
+
+model PuantajLock {
+  id        String   @id @default(cuid())
+  tenantId  String
+  year      Int
+  month     Int
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, year, month])
 }

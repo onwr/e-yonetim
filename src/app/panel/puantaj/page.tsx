@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw,
   Lock,
@@ -115,7 +116,32 @@ function formatTarih(year: number, month: number, day: number) {
 
 type PuantajData = Record<string, Record<number, string>>;
 type OvertimeData = Record<string, Record<number, { hours: number; desc: string }>>;
-type BirimKayitSatir = { name: string; subeAdi: string; departmanAdi: string };
+type IdName = { id: string; name: string };
+
+/** Bugünden 2 gün öncesi için otomatik kilit kuralı */
+function isCellAutolocked(year: number, month: number, day: number): boolean {
+  const cellDate = new Date(year, month, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(today.getDate() - 2);
+  return cellDate < twoDaysAgo;
+}
+
+/** Çıkış tarihinden sonraki günler pasif */
+function isAfterCikisTarihi(
+  year: number,
+  month: number,
+  day: number,
+  cikisTarihi: string | null | undefined
+): boolean {
+  if (!cikisTarihi) return false;
+  const exitDate = new Date(cikisTarihi);
+  if (isNaN(exitDate.getTime())) return false;
+  exitDate.setHours(0, 0, 0, 0);
+  const cellDate = new Date(year, month, day);
+  return cellDate > exitDate;
+}
 
 function mapPersonelRow(item: Record<string, unknown>) {
   return {
@@ -158,7 +184,8 @@ function payrollEntriesToOvertimeData(entries: unknown[]): OvertimeData {
     const pid = row.employeeId;
     if (!pid) continue;
 
-    const src = row.overtime;
+    const payloadObj = (row.payload ?? row.data) as Record<string, unknown> | undefined;
+    const src = payloadObj?.overtime ?? row.overtime;
     if (!src || typeof src !== "object" || Array.isArray(src)) continue;
 
     const days: Record<number, { hours: number; desc: string }> = {};
@@ -582,7 +609,7 @@ function GunSec({
   }, [isOpen, onToggle]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative dropdown-container">
       <button
         onClick={onToggle}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-[13px] font-extrabold transition-all shadow-sm min-w-[56px] justify-between ${
@@ -621,6 +648,7 @@ function GunSec({
 
 export default function PuantajPage() {
   const now = new Date();
+  const router = useRouter();
 
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -631,16 +659,56 @@ export default function PuantajPage() {
   const [kilit, setKilit] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
+  const [expandedRow, setExpandedRow] = useState<string | number | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [secilenHizliIslem, setSecilenHizliIslem] = useState("");
   const [gunAraligiBas, setGunAraligiBas] = useState("01");
   const [gunAraligiSon, setGunAraligiSon] = useState("15");
   const [secilenTur, setSecilenTur] = useState<PuantajTur>(ALL_TYPES[0]!);
 
-  const [firmaFiltre, setFirmaFiltre] = useState("Tümü");
-  const [subeFiltre, setSubeFiltre] = useState("Tümü");
-  const [departmanFiltre, setDepartmanFiltre] = useState("Tümü");
-  const [birimFiltre, setBirimFiltre] = useState("Tümü");
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!(event.target as Element).closest('.dropdown-container')) {
+        setActiveDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleKilit = async () => {
+    const nextState = !kilit;
+    setKilit(nextState);
+    try {
+      await fetchJsonWithError("/api/v1/puantaj/lock", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year, month, isLocked: nextState }),
+      });
+      showToast(`Puantaj dönemi ${nextState ? "kilitlendi" : "açıldı"}.`);
+    } catch (e) {
+      setKilit(!nextState); // Hata varsa geri al
+      showToast(getApiErrorMessage(e, "Kilit durumu kaydedilemedi."), "error");
+    }
+  };
+
+  // --- Filtre state (cascade) ---
+  const [firmaAdi, setFirmaAdi] = useState<string>("");         // Firma adı (sadece gösterim)
+  const [firmaSecili, setFirmaSecili] = useState(false);         // Firma seçili mi?
+
+  const [subeList, setSubeList] = useState<IdName[]>([]);        // Tüm şubeler
+  const [seciliSubeId, setSeciliSubeId] = useState<string>("");  // Seçili şube ID
+
+  const [departmanList, setDepartmanList] = useState<IdName[]>([]); // Seçili şubenin departmanları
+  const [seciliDepartmanId, setSeciliDepartmanId] = useState<string>("");
+
+  const [birimList, setBirimList] = useState<IdName[]>([]);       // Seçili departmanın birimleri
+  const [seciliBirimId, setSeciliBirimId] = useState<string>("");
+
+  const [loadingSubeler, setLoadingSubeler] = useState(false);
+  const [loadingDepartmanlar, setLoadingDepartmanlar] = useState(false);
+  const [loadingBirimler, setLoadingBirimler] = useState(false);
+  // --- / Filtre state ---
 
   const [puantajData, setPuantajData] = useState<PuantajData>({});
   const [pendingData, setPendingData] = useState<PuantajData>({});
@@ -658,87 +726,131 @@ export default function PuantajPage() {
   const [personel, setPersonel] = useState<any[]>([]);
   const [hiddenPersonelIds, setHiddenPersonelIds] = useState<Set<string>>(() => new Set());
   const [showYeniPersonelModal, setShowYeniPersonelModal] = useState(false);
-  const [subeOptions, setSubeOptions] = useState<string[]>([]);
-  const [departmanOptions, setDepartmanOptions] = useState<string[]>([]);
-  const [birimKayitlari, setBirimKayitlari] = useState<BirimKayitSatir[]>([]);
 
+  // Sayfa açıldığında: Firma adı + Şubeler + Personel listesi
   useEffect(() => {
     void (async () => {
       try {
         setApiError("");
         setLoadingPersonel(true);
+        setLoadingSubeler(true);
 
-        const [list, subeler, departmanlar, birimler] = await Promise.all([
+        const [list, firmaData, subelerData] = await Promise.all([
           fetchJsonWithError<any[]>("/api/v1/personel?page=1&pageSize=500"),
+          fetchJsonWithError<any>("/api/v1/firma").catch(() => null),
           fetchJsonWithError<any[]>("/api/v1/subeler?page=1&pageSize=200").catch(() => []),
-          fetchJsonWithError<any[]>("/api/v1/departmanlar?page=1&pageSize=200").catch(() => []),
-          fetchJsonWithError<any[]>("/api/v1/birimler?page=1&pageSize=500").catch(() => []),
         ]);
 
         const rows = Array.isArray(list) ? list.map(mapPersonelRow) : [];
         setPersonel(rows.map((p) => ({ ...p, kilit: false })));
 
-        const sNames = (Array.isArray(subeler) ? subeler : []).map((s: any) => s.name).filter(Boolean);
-        const dNames = (Array.isArray(departmanlar) ? departmanlar : [])
-          .map((d: any) => d.departmanAdi || d.name)
-          .filter(Boolean);
+        if (firmaData?.firmaUnvani) setFirmaAdi(firmaData.firmaUnvani);
+        else if (firmaData?.firmaKodu) setFirmaAdi(firmaData.firmaKodu);
 
-        setSubeOptions(sNames);
-        setDepartmanOptions(dNames);
-        setBirimKayitlari(
-          (Array.isArray(birimler) ? birimler : []).map((u: any) => ({
-            name: String(u.name ?? u.birimAdi ?? "").trim(),
-            subeAdi: String(u.department?.branch?.name ?? "").trim(),
-            departmanAdi: String(u.department?.name ?? "").trim(),
-          })).filter((b) => b.name),
-        );
+        const subelerArr = (Array.isArray(subelerData) ? subelerData : []).map((s: any) => ({
+          id: String(s.id ?? ""),
+          name: String(s.name ?? ""),
+        })).filter((s) => s.id && s.name);
+        setSubeList(subelerArr);
       } catch (e) {
         setApiError(getApiErrorMessage(e, "Personel listesi yuklenemedi."));
         setPersonel([]);
       } finally {
         setLoadingPersonel(false);
+        setLoadingSubeler(false);
       }
     })();
   }, []);
+
+  // Şube seçilince departmanları çek
+  useEffect(() => {
+    setSeciliDepartmanId("");
+    setDepartmanList([]);
+    setSeciliBirimId("");
+    setBirimList([]);
+
+    if (!seciliSubeId) return;
+
+    void (async () => {
+      try {
+        setLoadingDepartmanlar(true);
+        const data = await fetchJsonWithError<any[]>(
+          `/api/v1/departmanlar?subeId=${seciliSubeId}&page=1&pageSize=500`
+        ).catch(() => []);
+        const arr = (Array.isArray(data) ? data : []).map((d: any) => ({
+          id: String(d.id ?? ""),
+          name: String(d.name ?? d.departmanAdi ?? ""),
+        })).filter((d) => d.id && d.name);
+        setDepartmanList(arr);
+      } finally {
+        setLoadingDepartmanlar(false);
+      }
+    })();
+  }, [seciliSubeId]);
+
+  // Departman seçilince birimleri çek
+  useEffect(() => {
+    setSeciliBirimId("");
+    setBirimList([]);
+
+    if (!seciliDepartmanId) return;
+
+    void (async () => {
+      try {
+        setLoadingBirimler(true);
+        const data = await fetchJsonWithError<any[]>(
+          `/api/v1/birimler?departmanId=${seciliDepartmanId}&page=1&pageSize=500`
+        ).catch(() => []);
+        const arr = (Array.isArray(data) ? data : []).map((u: any) => ({
+          id: String(u.id ?? ""),
+          name: String(u.name ?? u.birimAdi ?? ""),
+        })).filter((u) => u.id && u.name);
+        setBirimList(arr);
+      } finally {
+        setLoadingBirimler(false);
+      }
+    })();
+  }, [seciliDepartmanId]);
 
   useEffect(() => {
     void (async () => {
       try {
         setLoadingPuantaj(true);
 
-        const entries = await fetchJsonWithError<unknown[]>(`/api/v1/puantaj?year=${year}&month=${month}`);
+        const [entries, lockData] = await Promise.all([
+          fetchJsonWithError<unknown[]>(`/api/v1/puantaj?year=${year}&month=${month}`),
+          fetchJsonWithError<{ isLocked: boolean }>(`/api/v1/puantaj/lock?year=${year}&month=${month}`).catch(() => ({ isLocked: false }))
+        ]);
 
         setPuantajData(payrollEntriesToPuantajData(entries ?? []));
         setOvertimeData(payrollEntriesToOvertimeData(entries ?? []));
         setPendingData({});
         setPendingOvertimeData({});
+        setKilit(lockData?.isLocked || false);
+
+        // Per-person lock status
+        const isArr = Array.isArray(entries);
+        const lockedMap: Record<string, boolean> = {};
+        if (isArr) {
+          for (const e of entries) {
+            if (e && (e as any).payload && typeof (e as any).payload === "object") {
+              const b = (e as any).payload.isLocked;
+              if (typeof b === "boolean") lockedMap[String((e as any).employeeId)] = b;
+            }
+          }
+        }
+        setPersonel((prev) => prev.map((p) => ({ ...p, kilit: !!lockedMap[p.id] })));
       } catch (e) {
         setApiError(getApiErrorMessage(e, "Puantaj verisi yuklenemedi."));
         setPuantajData({});
         setOvertimeData({});
+        setKilit(false);
       } finally {
         setLoadingPuantaj(false);
       }
     })();
   }, [year, month]);
 
-  const birimSelectOptions = useMemo(() => {
-    let rows = birimKayitlari;
-    if (subeFiltre !== "Tümü") {
-      rows = rows.filter((r) => r.subeAdi === subeFiltre);
-    }
-    if (departmanFiltre !== "Tümü") {
-      rows = rows.filter((r) => r.departmanAdi === departmanFiltre);
-    }
-    return [...new Set(rows.map((r) => r.name))].sort((a, b) => a.localeCompare(b, "tr"));
-  }, [birimKayitlari, subeFiltre, departmanFiltre]);
-
-  useEffect(() => {
-    if (birimFiltre === "Tümü") return;
-    if (!birimSelectOptions.includes(birimFiltre)) {
-      setBirimFiltre("Tümü");
-    }
-  }, [birimFiltre, birimSelectOptions]);
 
   const daysInMonth = getDaysInMonth(year, month);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -750,28 +862,35 @@ export default function PuantajPage() {
   const filteredPersonel = personel.filter((p) => {
     if (hiddenPersonelIds.has(String(p.id))) return false;
 
-    const row = p as typeof p & { sirket?: string; sube?: string; departman?: string; birim?: string };
     const q = search.toLowerCase();
-
     const sMatch =
       !q ||
       String(p.adSoyad ?? "").toLowerCase().includes(q) ||
       String(p.tckn ?? "").includes(q) ||
       String(p.sicil ?? "").includes(q);
 
-    const fMatch = firmaFiltre === "Tümü" || row.sirket === firmaFiltre;
-    const suMatch = subeFiltre === "Tümü" || row.sube === subeFiltre || p.org === subeFiltre;
-    const dMatch = departmanFiltre === "Tümü" || row.departman === departmanFiltre;
-    const bMatch = birimFiltre === "Tümü" || row.birim === birimFiltre;
+    // Firma filtresi: firma seçiliyse hepsini göster (single-tenant — zaten aynı firma)
+    const fMatch = !firmaSecili || true;
+
+    // Şube filtresi: personelin branchId'si seçili şubeyle eşleşmeli
+    const suMatch = !seciliSubeId || String(p.branchId ?? "") === seciliSubeId;
+
+    // Departman filtresi: personelin departmentId'si seçili departmanla eşleşmeli
+    const dMatch = !seciliDepartmanId || String(p.departmentId ?? "") === seciliDepartmanId;
+
+    // Birim filtresi: personelin unitId'si seçili birimle eşleşmeli (varsa)
+    const bMatch = !seciliBirimId || String(p.unitId ?? p.birimId ?? "") === seciliBirimId;
 
     return sMatch && fMatch && suMatch && dMatch && bMatch;
   });
 
   const handleFiltreyiKaldir = () => {
-    setFirmaFiltre("Tümü");
-    setSubeFiltre("Tümü");
-    setDepartmanFiltre("Tümü");
-    setBirimFiltre("Tümü");
+    setFirmaSecili(false);
+    setSeciliSubeId("");
+    setDepartmanList([]);
+    setSeciliDepartmanId("");
+    setBirimList([]);
+    setSeciliBirimId("");
     setSearch("");
   };
 
@@ -893,15 +1012,19 @@ export default function PuantajPage() {
       });
     });
 
-    const allEmployeeIds = Array.from(new Set([...Object.keys(nextPuantaj), ...Object.keys(nextOvertime)]));
+    const allEmployeeIds = Array.from(new Set([...Object.keys(nextPuantaj), ...Object.keys(nextOvertime), ...personel.filter(p=>p.kilit).map(p=>String(p.id))]));
 
-    const body = allEmployeeIds.map((employeeId) => ({
-      employeeId,
-      year,
-      month,
-      data: nextPuantaj[employeeId] || {},
-      overtime: nextOvertime[employeeId] || {},
-    }));
+    const body = allEmployeeIds.map((employeeId) => {
+      const p = personel.find(x => String(x.id) === employeeId);
+      return {
+        employeeId,
+        year,
+        month,
+        data: nextPuantaj[employeeId] || {},
+        overtime: nextOvertime[employeeId] || {},
+        isLocked: !!p?.kilit,
+      };
+    });
 
     void (async () => {
       try {
@@ -936,7 +1059,16 @@ export default function PuantajPage() {
         const pidKey = `${pid}`;
         next[pidKey] = { ...next[pidKey] };
 
+        const selectedPerson = filteredPersonel.find((p) => String(p.id) === pidKey);
+        const pKilit = selectedPerson?.kilit ?? false;
+        const cikisTarihi = selectedPerson ? ((selectedPerson as any).cikisTarihi || (selectedPerson as any).sgkCikisTarihi || (selectedPerson as any)['İşten Çıkış Tarihi'] || null) : null;
+
         for (let d = start; d <= end; d++) {
+          // --- Kilit kontrolü ---
+          const autoLocked = isCellAutolocked(year, month, d);
+          const afterExit = isAfterCikisTarihi(year, month, d, cikisTarihi);
+          if (pKilit || autoLocked || afterExit || kilit) continue;
+
           const dayName = getDayName(year, month, d);
 
           if (secilenHizliIslem === "HT_ALL" && (dayName === "Cmt" || dayName === "Paz")) next[pidKey][d] = "HT";
@@ -969,7 +1101,18 @@ export default function PuantajPage() {
       pids.forEach((pid) => {
         const pidKey = `${pid}`;
         next[pidKey] = { ...next[pidKey] };
-        for (let d = start; d <= end; d++) next[pidKey][d] = secilenTur.kod;
+        const selectedPerson = filteredPersonel.find((p) => String(p.id) === pidKey);
+        const pKilit = selectedPerson?.kilit ?? false;
+        const cikisTarihi = selectedPerson ? ((selectedPerson as any).cikisTarihi || (selectedPerson as any).sgkCikisTarihi || (selectedPerson as any)['İşten Çıkış Tarihi'] || null) : null;
+
+        for (let d = start; d <= end; d++) {
+          // --- Kilit kontrolü ---
+          const autoLocked = isCellAutolocked(year, month, d);
+          const afterExit = isAfterCikisTarihi(year, month, d, cikisTarihi);
+          if (pKilit || autoLocked || afterExit || kilit) continue;
+
+          next[pidKey][d] = secilenTur.kod;
+        }
       });
 
       return next;
@@ -1136,7 +1279,7 @@ export default function PuantajPage() {
             </button>
 
             <button
-              onClick={() => setKilit((p) => !p)}
+              onClick={toggleKilit}
               className={`flex items-center gap-2 font-extrabold text-[13px] px-5 py-2.5 rounded-xl transition-all border active:scale-95 ${
                 kilit
                   ? "bg-[#ef5a28]/10 border-[#ef5a28]/50 text-[#ef5a28]"
@@ -1158,7 +1301,7 @@ export default function PuantajPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden flex flex-col min-w-0">
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col min-w-0">
         <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-b border-gray-100">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -1172,7 +1315,7 @@ export default function PuantajPage() {
           </div>
 
           <button
-            onClick={() => setShowYeniPersonelModal(true)}
+            onClick={() => router.push("/panel/sgk-giris/yeni")}
             className="flex items-center gap-2 bg-[#ef5a28] hover:bg-[#d94720] text-white font-extrabold text-[12.5px] px-4 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 whitespace-nowrap"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -1228,41 +1371,192 @@ export default function PuantajPage() {
               <p className="text-[10px] font-extrabold text-gray-400 tracking-widest uppercase mb-3">FİLTRELER</p>
 
               <div className="flex flex-wrap items-end gap-3">
-                <StyledSelect
-                  label="Firma"
-                  value={firmaFiltre}
-                  options={["Tümü", "Diğer Firma"]}
-                  onChange={setFirmaFiltre}
-                  isOpen={activeDropdown === "firma"}
-                  onToggle={() => toggleDropdown("firma")}
-                />
+                {/* --- FİRMA --- */}
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Firma</span>
+                  <div className="relative dropdown-container">
+                    <button
+                      onClick={() => toggleDropdown("firma")}
+                      className={`flex items-center justify-between w-full pl-3.5 pr-3 py-2 bg-white border rounded-xl text-[13px] font-bold transition-all shadow-sm gap-2 ${
+                        firmaSecili ? "border-[#ef5a28] text-[#ef5a28]" : "border-gray-200 text-[#172b4d] hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="truncate">{firmaSecili && firmaAdi ? firmaAdi : "Tümü"}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${activeDropdown === "firma" ? "rotate-180" : ""}`} />
+                    </button>
+                    {activeDropdown === "firma" && (
+                      <div className="absolute left-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-full">
+                        <button
+                          onClick={() => { setFirmaSecili(false); setSeciliSubeId(""); setSeciliDepartmanId(""); setSeciliBirimId(""); toggleDropdown("firma"); }}
+                          className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${!firmaSecili ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                        >
+                          {!firmaSecili && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                          Tümü
+                        </button>
+                        {firmaAdi && (
+                          <button
+                            onClick={() => { setFirmaSecili(true); toggleDropdown("firma"); }}
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${firmaSecili ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                          >
+                            {firmaSecili && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                            <span className="truncate">{firmaAdi}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                <StyledSelect
-                  label="Şube"
-                  value={subeFiltre}
-                  options={["Tümü", ...subeOptions]}
-                  onChange={setSubeFiltre}
-                  isOpen={activeDropdown === "sube"}
-                  onToggle={() => toggleDropdown("sube")}
-                />
+                {/* --- ŞUBE --- */}
+                <div className="flex flex-col gap-1 min-w-[130px]">
+                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Şube</span>
+                  <div className="relative dropdown-container">
+                    <button
+                      onClick={() => toggleDropdown("sube")}
+                      className={`flex items-center justify-between w-full pl-3.5 pr-3 py-2 bg-white border rounded-xl text-[13px] font-bold transition-all shadow-sm gap-2 ${
+                        seciliSubeId ? "border-[#ef5a28] text-[#ef5a28]" : "border-gray-200 text-[#172b4d] hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {seciliSubeId ? (subeList.find((s) => s.id === seciliSubeId)?.name ?? "Tümü") : "Tümü"}
+                      </span>
+                      {loadingSubeler
+                        ? <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#ef5a28] rounded-full animate-spin shrink-0" />
+                        : <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${activeDropdown === "sube" ? "rotate-180" : ""}`} />
+                      }
+                    </button>
+                    {activeDropdown === "sube" && (
+                      <div className="absolute left-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-full">
+                        <div className="max-h-56 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                          <button
+                            onClick={() => { setSeciliSubeId(""); toggleDropdown("sube"); }}
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${!seciliSubeId ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                          >
+                            {!seciliSubeId && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                            Tümü
+                          </button>
+                          {subeList.length === 0 && (
+                            <div className="px-4 py-3 text-[12px] text-gray-400 italic">Şube bulunamadı</div>
+                          )}
+                          {subeList.map((s) => (
+                            <button
+                              key={s.id}
+                              onClick={() => { setSeciliSubeId(s.id); toggleDropdown("sube"); }}
+                              className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${seciliSubeId === s.id ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                            >
+                              {seciliSubeId === s.id && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                              <span className="truncate">{s.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                <StyledSelect
-                  label="Departman"
-                  value={departmanFiltre}
-                  options={["Tümü", ...departmanOptions]}
-                  onChange={setDepartmanFiltre}
-                  isOpen={activeDropdown === "dep"}
-                  onToggle={() => toggleDropdown("dep")}
-                />
+                {/* --- DEPARTMAN --- */}
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Departman</span>
+                  <div className="relative dropdown-container">
+                    <button
+                      onClick={() => seciliSubeId && toggleDropdown("dep")}
+                      title={!seciliSubeId ? "Önce bir şube seçin" : undefined}
+                      className={`flex items-center justify-between w-full pl-3.5 pr-3 py-2 bg-white border rounded-xl text-[13px] font-bold transition-all shadow-sm gap-2 ${
+                        !seciliSubeId
+                          ? "border-gray-100 text-gray-300 cursor-not-allowed"
+                          : seciliDepartmanId
+                          ? "border-[#ef5a28] text-[#ef5a28]"
+                          : "border-gray-200 text-[#172b4d] hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {seciliDepartmanId ? (departmanList.find((d) => d.id === seciliDepartmanId)?.name ?? "Tümü") : "Tümü"}
+                      </span>
+                      {loadingDepartmanlar
+                        ? <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#ef5a28] rounded-full animate-spin shrink-0" />
+                        : <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${activeDropdown === "dep" ? "rotate-180" : ""}`} />
+                      }
+                    </button>
+                    {activeDropdown === "dep" && seciliSubeId && (
+                      <div className="absolute left-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-full">
+                        <div className="max-h-56 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                          <button
+                            onClick={() => { setSeciliDepartmanId(""); toggleDropdown("dep"); }}
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${!seciliDepartmanId ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                          >
+                            {!seciliDepartmanId && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                            Tümü
+                          </button>
+                          {departmanList.length === 0 && (
+                            <div className="px-4 py-3 text-[12px] text-gray-400 italic">Bu şubede departman yok</div>
+                          )}
+                          {departmanList.map((d) => (
+                            <button
+                              key={d.id}
+                              onClick={() => { setSeciliDepartmanId(d.id); toggleDropdown("dep"); }}
+                              className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${seciliDepartmanId === d.id ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                            >
+                              {seciliDepartmanId === d.id && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                              <span className="truncate">{d.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                <StyledSelect
-                  label="Birim"
-                  value={birimFiltre}
-                  options={["Tümü", ...birimSelectOptions]}
-                  onChange={setBirimFiltre}
-                  isOpen={activeDropdown === "birim"}
-                  onToggle={() => toggleDropdown("birim")}
-                />
+                {/* --- BİRİM --- */}
+                <div className="flex flex-col gap-1 min-w-[130px]">
+                  <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Görev/Birim</span>
+                  <div className="relative dropdown-container">
+                    <button
+                      onClick={() => seciliDepartmanId && toggleDropdown("birim")}
+                      title={!seciliDepartmanId ? "Önce bir departman seçin" : undefined}
+                      className={`flex items-center justify-between w-full pl-3.5 pr-3 py-2 bg-white border rounded-xl text-[13px] font-bold transition-all shadow-sm gap-2 ${
+                        !seciliDepartmanId
+                          ? "border-gray-100 text-gray-300 cursor-not-allowed"
+                          : seciliBirimId
+                          ? "border-[#ef5a28] text-[#ef5a28]"
+                          : "border-gray-200 text-[#172b4d] hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {seciliBirimId ? (birimList.find((b) => b.id === seciliBirimId)?.name ?? "Tümü") : "Tümü"}
+                      </span>
+                      {loadingBirimler
+                        ? <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#ef5a28] rounded-full animate-spin shrink-0" />
+                        : <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${activeDropdown === "birim" ? "rotate-180" : ""}`} />
+                      }
+                    </button>
+                    {activeDropdown === "birim" && seciliDepartmanId && (
+                      <div className="absolute left-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-full">
+                        <div className="max-h-56 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                          <button
+                            onClick={() => { setSeciliBirimId(""); toggleDropdown("birim"); }}
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${!seciliBirimId ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                          >
+                            {!seciliBirimId && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                            Tümü
+                          </button>
+                          {birimList.length === 0 && (
+                            <div className="px-4 py-3 text-[12px] text-gray-400 italic">Bu departmanda birim yok</div>
+                          )}
+                          {birimList.map((b) => (
+                            <button
+                              key={b.id}
+                              onClick={() => { setSeciliBirimId(b.id); toggleDropdown("birim"); }}
+                              className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left text-[12.5px] font-bold transition-colors ${seciliBirimId === b.id ? "bg-orange-50 text-[#ef5a28]" : "text-[#172b4d] hover:bg-gray-50"}`}
+                            >
+                              {seciliBirimId === b.id && <span className="w-1.5 h-1.5 rounded-full bg-[#ef5a28] shrink-0" />}
+                              <span className="truncate">{b.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex gap-2 items-end pb-0.5 ml-auto">
                   <button
@@ -1283,7 +1577,7 @@ export default function PuantajPage() {
                 <div className="flex items-center gap-2 relative">
                   <span className="text-[12px] font-extrabold text-[#172b4d]">HIZLI MENÜ</span>
 
-                  <div className="relative">
+                  <div className="relative dropdown-container">
                     <button
                       onClick={() => toggleDropdown("hizliMenu")}
                       className={`flex items-center gap-2 w-64 pl-4 pr-3 py-2 border-2 rounded-xl text-[13px] font-bold shadow-sm transition-all ${
@@ -1377,7 +1671,7 @@ export default function PuantajPage() {
 
                   <span className="text-gray-400 font-bold text-[12px]">arası</span>
 
-                  <div className="relative">
+                  <div className="relative dropdown-container">
                     <button
                       onClick={() => toggleDropdown("turAta")}
                       className={`flex items-center gap-2.5 pl-3.5 pr-3 py-2 bg-white border-2 rounded-xl text-[13px] font-extrabold transition-all shadow-sm whitespace-nowrap ${
@@ -1516,13 +1810,28 @@ export default function PuantajPage() {
                 {days.map((d) => {
                   const dayName = getDayName(year, month, d);
                   const wknd = isWeekend(year, month, d);
+                  const autoLocked = isCellAutolocked(year, month, d);
+                  // Düzenleme izni kapalıyken TÜM günlerde kilit göster
+                  const showLock = autoLocked || !duzenlemeIzni;
 
                   return (
                     <th
                       key={d}
-                      className={`py-1 text-center text-[10px] border-l border-[#d94720] ${wknd ? "bg-[#c83d13]" : ""}`}
+                      className={`py-1 text-center text-[10px] border-l border-[#d94720] ${
+                        autoLocked ? "bg-[#b83210]" : wknd ? "bg-[#c83d13]" : ""
+                      }`}
+                      title={
+                        autoLocked
+                          ? "Otomatik kilitli (2 gün kuralı)"
+                          : !duzenlemeIzni
+                          ? "Düzenleme İzni kapalı"
+                          : undefined
+                      }
                     >
-                      <div className="font-black leading-tight">{String(d).padStart(2, "0")}</div>
+                      <div className="font-black leading-tight flex items-center justify-center gap-0.5">
+                        {String(d).padStart(2, "0")}
+                        {showLock && <Lock className="w-2 h-2 opacity-60" />}
+                      </div>
                       <div className="opacity-80 font-bold">{dayName}</div>
                     </th>
                   );
@@ -1542,9 +1851,20 @@ export default function PuantajPage() {
                   </td>
                 </tr>
               ) : (
-                filteredPersonel.map((p, idx) => (
+                filteredPersonel.map((p, idx) => {
+                  const isExpanded = expandedRow === p.id;
+                  const cikisTarihi =
+                        (p as any).cikisTarihi ||
+                        (p as any).sgkCikisTarihi ||
+                        (p as any)['İşten Çıkış Tarihi'] ||
+                        null;
+                  const isPassive = !!cikisTarihi && new Date(cikisTarihi) < new Date();
+                  const durumMetni = isPassive ? "Pasif" : (p.statu || "Aktif");
+                  const statColor = durumMetni === "Pasif" ? "#ef4444" : "#10b981"; // kirmizi vs yesil
+                  
+                  return (
+                  <Fragment key={p.id}>
                   <tr
-                    key={p.id}
                     className={`border-b border-gray-100 transition-colors ${
                       selectedRows.includes(p.id) ? "bg-orange-50/50" : "hover:bg-gray-50/40"
                     }`}
@@ -1564,17 +1884,30 @@ export default function PuantajPage() {
                     </td>
 
                     <td className="py-3 px-2 text-center">
-                      <Lock className={`w-3.5 h-3.5 mx-auto ${p.kilit ? "text-[#ef5a28]" : "text-gray-200"}`} />
+                      <button 
+                         onClick={() => {
+                            if (!duzenlemeIzni) return;
+                            setPersonel(prev => prev.map(x => x.id === p.id ? { ...x, kilit: !x.kilit } : x));
+                            showToast(`${p.adSoyad} isimli personelin kilidi ${!p.kilit ? 'kapatıldı' : 'açıldı'}. Lütfen değişiklikleri kaydedin.`);
+                         }}
+                         className="hover:scale-110 active:scale-95 transition-transform"
+                         title={p.kilit ? "Kilidi Aç" : "Personeli Kilitle (İşlem yapılmasını engeller)"}
+                      >
+                         <Lock className={`w-4 h-4 mx-auto transition-colors ${p.kilit ? "text-[#ef5a28]" : "text-gray-200 hover:text-gray-300"}`} />
+                      </button>
                     </td>
 
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="w-2 h-2 rounded-full bg-green-500 shrink-0"></span>
-                        <span className="font-extrabold text-[13px] text-[#172b4d] truncate">{p.adSoyad}</span>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statColor }}></span>
+                        <span className="font-extrabold text-[13px] text-[#172b4d] truncate cursor-pointer hover:text-[#ef5a28] transition-colors flex items-center gap-1" onClick={() => setExpandedRow(isExpanded ? null : p.id)}>
+                          {p.adSoyad}
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                        </span>
                       </div>
                       <div className="text-[10.5px] font-semibold text-gray-400 truncate pl-4">TCKN: {p.tckn}</div>
-                      <div className="text-[10.5px] font-semibold text-gray-400 truncate pl-4">
-                        Per.Sicil.No: <span className="text-[#ef5a28] font-extrabold">{p.sicil}</span>
+                      <div className="text-[10.5px] font-semibold text-gray-400 truncate pl-4 flex items-center justify-between">
+                        <span>Per.Sicil.No: <span className="text-[#ef5a28] font-extrabold">{p.sicil}</span></span>
                       </div>
                     </td>
 
@@ -1582,26 +1915,92 @@ export default function PuantajPage() {
                       const val = getCellValue(p.id, d);
                       const tur = val ? getTur(val) : null;
                       const wknd = isWeekend(year, month, d);
-                      const canEdit = duzenlemeIzni && !kilit && !p.kilit;
                       const overtime = getOvertimeValue(p.id, d);
 
+                      // --- Kural 1: 2 gün öncesi otomatik kilit ---
+                      const autoLocked = isCellAutolocked(year, month, d);
+
+                      // --- Kural 2: Çıkış tarihinden sonrası pasif ---
+                      // personelJson içinden cikisTarihi çekilir (varsa)
+                      const afterExit = isAfterCikisTarihi(year, month, d, cikisTarihi);
+
+                      // --- Düzenleme izni + tüm kilitler ---
+                      const canEdit =
+                        duzenlemeIzni && !kilit && !p.kilit && !autoLocked && !afterExit;
+
+                      // Görsel durum sınıflandırması
+                      const isPassive = afterExit; // tamamen gri / pasif
+                      const isHardLocked = autoLocked && !afterExit; // turuncu kafes
+                      const isEditLocked = !duzenlemeIzni && !afterExit; // düzenleme izni yok
+
                       return (
-                        <td key={d} className={`border-l border-gray-100 py-1 px-0.5 text-center ${wknd ? "bg-gray-50/40" : ""}`}>
-                          <div className="flex flex-col items-center gap-1">
+                        <td
+                          key={d}
+                          className={`border-l border-gray-100 py-1 px-0.5 text-center relative ${
+                            isPassive
+                              ? "bg-gray-100/80"
+                              : wknd
+                              ? "bg-gray-50/40"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1 relative">
+                            {/* Düzenleme izni kapalıyken kafes overlay */}
+                            {isEditLocked && !isPassive && !tur && (
+                              <div
+                                className="absolute inset-0 rounded-lg pointer-events-none"
+                                style={{
+                                  backgroundImage:
+                                    "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(180,180,200,0.18) 3px, rgba(180,180,200,0.18) 4px)",
+                                  zIndex: 1,
+                                }}
+                              />
+                            )}
+
                             <button
                               onClick={() => handleCellClick(p.id, d)}
                               disabled={!canEdit}
-                              title={canEdit ? "Tıkla ve durum seç" : "Düzenleme İzni kapalı"}
-                              className={`w-7 h-7 rounded-lg mx-auto flex items-center justify-center transition-all text-[10px] font-black ${
-                                tur
+                              title={
+                                afterExit
+                                  ? "Çıkış tarihinden sonraki gün"
+                                  : autoLocked
+                                  ? "Bu gün otomatik kilitlendi (2 gün kuralı)"
+                                  : canEdit
+                                  ? "Tıkla ve durum seç"
+                                  : "Düzenleme İzni kapalı"
+                              }
+                              className={`w-7 h-7 rounded-lg mx-auto flex items-center justify-center transition-all text-[10px] font-black relative ${
+                                isPassive
+                                  ? "bg-gray-200/60 text-gray-400 cursor-not-allowed border border-gray-200"
+                                  : isHardLocked
+                                  ? tur
+                                    ? "cursor-not-allowed shadow-sm opacity-75"
+                                    : "border-2 border-dashed border-orange-200 bg-orange-50/40 cursor-not-allowed"
+                                  : tur
                                   ? `shadow-sm ${canEdit ? "hover:scale-105 cursor-pointer" : "cursor-default"}`
                                   : canEdit
                                   ? "border border-dashed border-gray-200 hover:border-[#ef5a28] hover:bg-orange-50/60 cursor-pointer"
-                                  : "border border-gray-200 bg-white/70 cursor-default rounded-lg"
+                                  : "border border-gray-200/60 bg-gray-50/80 cursor-default"
                               }`}
-                              style={tur ? { backgroundColor: tur.bg, color: tur.renk } : {}}
+                              style={
+                                isPassive
+                                  ? {}
+                                  : tur
+                                  ? { backgroundColor: tur.bg, color: tur.renk, opacity: isHardLocked ? 0.7 : 1 }
+                                  : {}
+                              }
                             >
-                              {tur ? tur.kod : ""}
+                              {isPassive ? (
+                                <span className="text-gray-300 text-[10px]">—</span>
+                              ) : isHardLocked && !tur ? (
+                                <Lock className="w-2.5 h-2.5 text-orange-300" />
+                              ) : !duzenlemeIzni && !tur ? (
+                                <Lock className="w-2.5 h-2.5 text-gray-300" />
+                              ) : tur ? (
+                                tur.kod
+                              ) : (
+                                ""
+                              )}
                             </button>
 
                             <button
@@ -1609,12 +2008,14 @@ export default function PuantajPage() {
                               disabled={!canEdit}
                               title={canEdit ? "Fazla mesai gir" : "Düzenleme İzni kapalı"}
                               className={`w-7 h-4 rounded-md text-[9px] font-black border transition-all ${
-                                overtime?.hours > 0
+                                isPassive
+                                  ? "border-gray-100 bg-gray-100/60 text-transparent cursor-not-allowed"
+                                  : overtime?.hours > 0
                                   ? "border-blue-300 bg-blue-50 text-blue-600"
                                   : "border-gray-200 text-gray-300 hover:border-blue-300 hover:bg-blue-50"
                               } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
                             >
-                              {overtime?.hours > 0 ? overtime.hours : ""}
+                              {!isPassive && overtime?.hours > 0 ? overtime.hours : ""}
                             </button>
                           </div>
                         </td>
@@ -1654,7 +2055,53 @@ export default function PuantajPage() {
                       })()}
                     </td>
                   </tr>
-                ))
+
+                  {isExpanded && (
+                    <tr className="bg-orange-50/20 border-b-2 border-orange-100">
+                      <td colSpan={5 + daysInMonth} className="p-0">
+                        <div className="overflow-hidden transition-all duration-300 animate-in slide-in-from-top-2">
+                          <div className="px-6 py-3 flex items-center gap-x-6 gap-y-2 flex-wrap text-[11.5px] font-semibold text-gray-600">
+                            <div className="flex items-center gap-2 border-r border-orange-200/60 pr-6">
+                              <span className="text-gray-400">Durum:</span>
+                              <div className="flex items-center gap-1.5 font-extrabold" style={{ color: statColor }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statColor }}></span>
+                                {durumMetni}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400">Firma:</span>
+                              <span className="text-[#172b4d] font-extrabold">{firmaAdi || "-"}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400">Şube:</span>
+                              <span className="text-[#172b4d] font-extrabold">{(p.branch as any)?.name || (p as any).sube || "-"}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400">Departman:</span>
+                              <span className="text-[#172b4d] font-extrabold">{(p.department as any)?.name || (p as any).departman || "-"}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400">Görevi:</span>
+                              <span className="text-[#172b4d] font-extrabold">{p.unvan || "-"}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 border-l border-orange-200/60 pl-6 ml-auto">
+                              <span className="text-gray-400">Giriş Trh:</span>
+                              <span className="text-[#172b4d] font-extrabold">
+                                {(p as any).girisTarihi || (p as any).sgkGirisTarihi || (p as any)['İşe Giriş Tarihi'] || "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-400">Çıkış Trh:</span>
+                              <span className="text-[#172b4d] font-extrabold">{cikisTarihi || "-"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                );
+              })
               )}
             </tbody>
           </table>

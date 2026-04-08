@@ -20,6 +20,8 @@ export const PUT = createProtectedRouteHandler(async (request: NextRequest, sess
     year: number;
     month: number;
     data: unknown;
+    overtime?: unknown;
+    isLocked?: boolean;
   }>;
   await upsertPuantaj(session.tenantId, payload);
   return ok({ updated: true });

@@ -1,9 +1,11 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Bell, Mail, ChevronDown, User, UserPlus, UserMinus, Activity, FileText, X, CheckCheck, LogOut, Lock, Building2, CreditCard, UserCog, Key, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu, Bell, Mail, ChevronDown, User, UserPlus, UserMinus, Activity, FileText, X, CheckCheck, LogOut, Lock, Building2, CreditCard, UserCog, Key, ShieldAlert } from "lucide-react";
 import { useNotifications } from "@/context/NotificationContext";
 import { useOnboarding } from "@/context/OnboardingContext";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 
 interface TopHeaderProps {
   isSidebarOpen: boolean;
@@ -69,11 +71,15 @@ export default function TopHeader({ isSidebarOpen, toggleSidebar }: TopHeaderPro
           className="w-[34px] h-[34px] rounded-full border border-[#0052cc]/30 flex items-center justify-center bg-[#f4f5f7] text-[#0052cc] hover:bg-[#0052cc] hover:text-white transition-all shadow-sm group"
         >
           {isSidebarOpen ? (
-            <ChevronLeft className="h-[18px] w-[18px] stroke-[2.5]" />
+            <ChevronLeft className="h-[18px] w-[18px] stroke-[2.5] hidden lg:block" />
           ) : (
-            <ChevronRight className="h-[18px] w-[18px] stroke-[2.5]" />
+            <ChevronRight className="h-[18px] w-[18px] stroke-[2.5] hidden lg:block" />
           )}
+          <Menu className="h-[18px] w-[18px] stroke-[2.5] block lg:hidden" />
         </button>
+        <Link href="/panel" className="lg:hidden ml-4 flex items-center">
+          <Image src="/analogo.svg" alt="e-Yönetim" width={110} height={36} className="h-8 w-auto aspect-auto" priority />
+        </Link>
       </div>
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-5">
@@ -92,7 +98,7 @@ export default function TopHeader({ isSidebarOpen, toggleSidebar }: TopHeaderPro
             </button>
 
             {showNotifPanel && (
-              <div className="absolute right-0 top-[calc(100%+16px)] w-[380px] bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-gray-200 z-50 overflow-hidden">
+              <div className="absolute right-[-60px] sm:right-0 top-[calc(100%+16px)] w-[320px] sm:w-[380px] max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-gray-200 z-50 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center gap-2.5">
@@ -177,7 +183,7 @@ export default function TopHeader({ isSidebarOpen, toggleSidebar }: TopHeaderPro
           </div>
 
           {showUserMenu && (
-            <div className="absolute right-0 top-[calc(100%+12px)] w-[280px] bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden animate-fade-in origin-top-right scale-95 opacity-0" style={{ animation: "popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}>
+            <div className="absolute right-0 top-[calc(100%+12px)] w-[260px] sm:w-[280px] max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden animate-fade-in origin-top-right scale-95 opacity-0" style={{ animation: "popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}>
               <style dangerouslySetInnerHTML={{__html: `
                 @keyframes popIn {
                   0% { opacity: 0; transform: scale(0.95); }

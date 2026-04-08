@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState, useRef, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { KimlikVeTemelBilgilerModal } from "@/components/personel/Modals/KimlikVeTemelBilgilerModal";
 import { KurumVeKadroBilgileriModal } from "@/components/personel/Modals/KurumVeKadroBilgileriModal";
@@ -34,6 +34,8 @@ export default function PersonelDetayPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [statu, setStatu] = useState("Aktif");
   const [editingCard, setEditingCard] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -82,6 +84,38 @@ export default function PersonelDetayPage() {
 
   const updateLocalPersonel = (updates: Partial<typeof p>) => {
     setPersonel((prev: any) => (prev ? { ...prev, ...updates } : prev));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingImage(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/v1/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Fotoğraf yüklenemedi.");
+      }
+
+      const imageUrl = json.data?.path || json.url || json.path;
+      if (imageUrl) {
+        await updatePersonelApi({ profilResmi: imageUrl });
+        updateLocalPersonel({ profilResmi: imageUrl });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Bilinmeyen bir hata oluştu");
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleSave = (updates: Partial<typeof p>) => {
@@ -155,7 +189,7 @@ export default function PersonelDetayPage() {
   )};
   return (
     <div className="flex flex-col gap-6 w-full pb-20">
-      <div className="bg-white border-2 border-gray-100 rounded-2xl p-3 flex items-center gap-4 shadow-sm">
+      <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shadow-sm">
         <div className="flex-1 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 tracking-wider">HIZLI PERSONEL ARA</span>
           <div className="relative mt-7">
@@ -171,8 +205,8 @@ export default function PersonelDetayPage() {
           Personel Kartını Görüntüle
         </button>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-extrabold text-[12px] transition-colors ${isPasif ? "bg-red-50 border-red-100 text-red-600" : "bg-green-50 border-green-100 text-green-600"}`}>
             <div className={`w-2 h-2 rounded-full ${isPasif ? "bg-red-500" : "bg-green-500"} animate-pulse`}></div>
             {statu} Personel
@@ -197,15 +231,35 @@ export default function PersonelDetayPage() {
           <LogOut className="w-4 h-4 stroke-[2.5]" /> İşten Çıkış
         </button>
       </div>
-      <div className="flex items-start gap-6">
-        <div className="w-[320px] flex flex-col gap-6 shrink-0">
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        <div className="w-full lg:w-[320px] flex flex-col gap-6 shrink-0">
           <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center">
             <div className="h-28 bg-[#172b4d] w-full"></div>
             <div className="relative -mt-12 mb-4">
-              <div className="w-24 h-24 bg-gray-100 rounded-[28px] border-4 border-white shadow-sm flex items-center justify-center text-[28px] font-black text-[#172b4d]">
-                {getInitials(p.adSoyad)}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <div className="w-24 h-24 bg-gray-100 rounded-[28px] border-4 border-white shadow-sm flex items-center justify-center text-[28px] font-black text-[#172b4d] overflow-hidden relative">
+                {isUploadingImage && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 transition-all">
+                    <div className="w-5 h-5 border-2 border-[#172b4d] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {p.profilResmi ? (
+                  <img src={p.profilResmi} alt="Profil" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(p.adSoyad)
+                )}
               </div>
-              <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#172b4d] rounded-full border-2 border-white flex items-center justify-center text-white hover:bg-[#0052cc] transition-colors shadow-sm">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+                className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#172b4d] rounded-full border-2 border-white flex items-center justify-center text-white hover:bg-[#0052cc] transition-colors shadow-sm disabled:opacity-50"
+              >
                 <Camera className="w-4 h-4" />
               </button>
             </div>
@@ -214,7 +268,7 @@ export default function PersonelDetayPage() {
               <div className="w-1.5 h-1.5 rounded-full bg-[#0052cc]"></div>
               <span className="text-[12px] font-bold">{p.org}</span>
             </div>
-            <div className="flex w-full px-5 py-5 gap-3 border-t-2 border-gray-50 bg-gray-50/50">
+            <div className="flex flex-col sm:flex-row w-full px-5 py-5 gap-3 border-t-2 border-gray-50 bg-gray-50/50">
               <div className="flex-1 bg-white border-2 border-gray-100 rounded-xl p-3 flex flex-col items-center">
                 <span className="text-[9px] font-black text-gray-400 tracking-wider">SİCİL NO</span>
                 <span className="text-[14px] font-black text-[#172b4d] mt-1">{p.sicil}</span>
@@ -251,7 +305,7 @@ export default function PersonelDetayPage() {
           />
         </div>
         <div className="flex-1 flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             <div className="flex flex-col gap-6">
               <InfoCard 
                 icon={Building2}
@@ -413,7 +467,7 @@ export default function PersonelDetayPage() {
                   { label: "TÜM EĞİTİMLER (ÖZET)", value: p.egitimlerOzeti },
                 ]}
               />
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <InfoCard 
                   icon={Stethoscope}
                   title="İşe Giriş Sağlık Muayenesi"

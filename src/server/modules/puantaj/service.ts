@@ -9,7 +9,7 @@ export async function getPuantaj(tenantId: string, year: number, month: number) 
 
 export async function upsertPuantaj(
   tenantId: string,
-  payload: Array<{ employeeId: string; year: number; month: number; data: unknown }>,
+  payload: Array<{ employeeId: string; year: number; month: number; data: unknown; overtime?: unknown; isLocked?: boolean }>,
 ) {
   for (const row of payload) {
     await prisma.payrollEntry.upsert({
@@ -26,10 +26,18 @@ export async function upsertPuantaj(
         employeeId: row.employeeId,
         year: row.year,
         month: row.month,
-        payload: row.data as object,
+        payload: {
+          ...(row.data as object),
+          overtime: row.overtime,
+          isLocked: row.isLocked,
+        },
       },
       update: {
-        payload: row.data as object,
+        payload: {
+          ...(row.data as object),
+          overtime: row.overtime,
+          isLocked: row.isLocked,
+        },
       },
     });
   }

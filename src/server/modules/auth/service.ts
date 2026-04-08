@@ -48,10 +48,10 @@ async function createAndSendSmsVerification(input: {
   });
 
   const msg = `e-Yonetim dogrulama kodunuz: ${code}. Kod 3 dakika gecerlidir. Paylasmayin.`;
-  
+
   try {
     const smsRes = await sendNetgsmSms({ telefon: input.telefon, message: msg });
-    
+
     if (smsRes.success) {
       console.log(`[NETGSM] SMS Başarıyla gönderildi -> ${input.telefon}`);
     } else {
@@ -211,9 +211,9 @@ export async function verifySmsAndCreateSession(input: {
   const altPhone = normalized.startsWith("0") ? normalized.slice(1) : normalized;
 
   const user = await prisma.user.findFirst({
-    where: { 
+    where: {
       OR: [{ telefon: normalized }, { telefon: altPhone }],
-      deletedAt: null 
+      deletedAt: null
     },
     include: { tenant: true },
   });
@@ -271,9 +271,9 @@ export async function resendSmsVerification(input: { telefon: string; type: "reg
   const altPhone = normalized.startsWith("0") ? normalized.slice(1) : normalized;
 
   const user = await prisma.user.findFirst({
-    where: { 
+    where: {
       OR: [{ telefon: normalized }, { telefon: altPhone }],
-      deletedAt: null 
+      deletedAt: null
     },
   });
   if (!user) {

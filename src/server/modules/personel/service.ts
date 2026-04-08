@@ -21,7 +21,16 @@ export async function listPersonel(input: {
       : {}),
   };
   const [items, total] = await Promise.all([
-    prisma.employee.findMany({ where, skip: input.skip, take: input.take, orderBy: { createdAt: "desc" } }),
+    prisma.employee.findMany({
+      where,
+      include: {
+        branch: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+      },
+      skip: input.skip,
+      take: input.take,
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.employee.count({ where }),
   ]);
   return { items, total };

@@ -26,6 +26,7 @@ import { fetchJsonWithError } from "@/lib/fetchJsonWithError";
 
 interface SidebarProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
 type SubmenuItem = {
@@ -45,7 +46,7 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
-export default function Sidebar({ isOpen }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -292,6 +293,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     }
     if (item.href) {
       router.push(item.href);
+      if (window.innerWidth < 1024 && onClose) onClose();
     }
   };
 
@@ -305,8 +307,10 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
   return (
     <aside
-      className={`h-screen bg-white border-r border-[#E9EDF5] flex flex-col transition-all duration-300 z-20 shrink-0 ${
-        isOpen ? "w-[300px]" : "w-[88px] items-center"
+      className={`fixed lg:relative h-screen bg-white border-r border-[#E9EDF5] flex flex-col transition-all duration-300 z-50 shrink-0 left-0 top-0 ${
+        isOpen 
+          ? "w-[280px] sm:w-[300px] translate-x-0" 
+          : "w-[280px] sm:w-[300px] lg:w-[88px] -translate-x-full lg:translate-x-0 lg:items-center"
       }`}
     >
       <div className={`h-[88px] flex items-center border-b border-[#F1F4F9] shrink-0 ${isOpen ? "px-6" : "justify-center w-full"}`}>
