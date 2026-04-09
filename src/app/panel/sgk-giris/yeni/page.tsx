@@ -238,14 +238,16 @@ export default function SgkGirisYeniTalepPage() {
   const isKisitli = tcknDurum === 'kisitli';
 
   useEffect(() => {
-    setAyarlar(loadAyarlar());
-    // Şube ve departmanları API'den çek
+    // Ayarlar + şube/departman/birim paralel çek
     void (async () => {
       try {
-        const [subeler, departmanlar, birimler] = await Promise.all([
+        const [subeler, departmanlar, birimler, ayarlarRes] = await Promise.all([
           fetchJsonWithError<any[]>("/api/v1/subeler?page=1&pageSize=200"),
           fetchJsonWithError<any[]>("/api/v1/departmanlar?page=1&pageSize=200"),
           fetchJsonWithError<any[]>("/api/v1/birimler?page=1&pageSize=500"),
+          fetch("/api/v1/ayarlar/sgk-giris", { credentials: "include" })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null),
         ]);
         const sNames = (Array.isArray(subeler) ? subeler : []).map((s: any) => s.name).filter(Boolean);
         const dNames = (Array.isArray(departmanlar) ? departmanlar : []).map((d: any) => d.departmanAdi || d.name).filter(Boolean);
@@ -258,6 +260,13 @@ export default function SgkGirisYeniTalepPage() {
             departmanAdi: String(u.department?.name ?? "").trim(),
           })).filter((b) => b.name),
         );
+        // Ayarlar
+        if (ayarlarRes?.success && ayarlarRes?.data) {
+          setAyarlar({
+            zorunluAlanlar: Array.isArray(ayarlarRes.data.zorunluAlanlar) ? ayarlarRes.data.zorunluAlanlar : [],
+            zorunluEvraklar: Array.isArray(ayarlarRes.data.zorunluEvraklar) ? ayarlarRes.data.zorunluEvraklar : [],
+          });
+        }
       } catch {
         // API'den gelemezsek boş liste — kullanıcı manuel girer
       }
@@ -311,6 +320,31 @@ export default function SgkGirisYeniTalepPage() {
     if (ayarlar.zorunluAlanlar.length === 0) return false;
     return ayarlar.zorunluAlanlar.includes(fieldId);
   };
+
+  // Ayarlardan gelen zorunlu evraklar değiştiğinde formData.evraklar'ı güncelle
+  useEffect(() => {
+    if (ayarlar.zorunluEvraklar.length === 0) return;
+    setFormData(prev => {
+      const mevcutIds = new Set(prev.evraklar.map(e => e.id));
+      const yeniEvraklar = ayarlar.zorunluEvraklar
+        .map(isim => ({
+          id: isim.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, ''),
+          isim,
+          durum: 'bekliyor' as const,
+          dosyaUrl: undefined,
+        }))
+        .filter(e => !mevcutIds.has(e.id)); // Zaten yüklenenler silinmesin
+      
+      // Ayarlarda olmayan evrakları kaldır (yüklenmemişleri)
+      const filtrelenmisPrev = prev.evraklar.filter(e =>
+        ayarlar.zorunluEvraklar.some(isim =>
+          isim.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '') === e.id
+        )
+      );
+      
+      return { ...prev, evraklar: [...filtrelenmisPrev, ...yeniEvraklar] };
+    });
+  }, [ayarlar.zorunluEvraklar]);
 
   const [formData, setFormData] = useState<SgkGirisFormState>({
     uyrugu: 'Türkiye Cumhuriyeti',
@@ -399,11 +433,7 @@ export default function SgkGirisYeniTalepPage() {
     demirbas: 'Hayır',
 
     // Evraklar Listesi
-    evraklar: ZORUNLU_EVRAKLAR.map((isim) => ({
-      id: isim.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, ''),
-      isim,
-      durum: 'bekliyor'
-    }))
+    evraklar: []
   });
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -1196,6 +1226,22 @@ export default function SgkGirisYeniTalepPage() {
             </div>
           </div>
 
+          {formData.evraklar.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <Folder className="w-8 h-8 text-gray-300" />
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-gray-500">Zorunlu Evrak Tanımlanmamış</p>
+                <p className="text-[13px] text-gray-400 mt-1 max-w-sm">
+                  SGK Giriş Ayarları sayfasından zorunlu evrakları seçerek bu listeyi doldurabilirsiniz.
+                </p>
+              </div>
+              <a href="/panel/sgk-giris/ayarlar" className="px-5 py-2.5 bg-[#ef5a28] text-white text-[13px] font-bold rounded-xl hover:bg-[#d94a1c] transition-colors">
+                Ayarlara Git
+              </a>
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-6">
             {formData.evraklar.map((evrak: any) => (
               <div
@@ -1280,6 +1326,7 @@ export default function SgkGirisYeniTalepPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </div>
 

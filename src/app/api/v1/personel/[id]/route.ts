@@ -9,7 +9,7 @@ import { forbidden } from "@/server/lib/errors";
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, context: Params) {
-  return createProtectedRouteHandler(async (_req, session) => {
+  return createAuthorizedRouteHandler("ik_1", "view", async (_req, session) => {
     const { id } = await context.params;
     const personel = await getPersonelById(session.tenantId, id);
     return ok(personel);
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, context: Params) {
 }
 
 export async function PATCH(request: NextRequest, context: Params) {
-  return createAuthorizedRouteHandler("personel", "edit", async (req, session) => {
+  return createAuthorizedRouteHandler("ik_1", "edit", async (req, session) => {
     const { id } = await context.params;
     const payload = (await req.json()) as Record<string, unknown>;
     const updated = await prisma.employee.update({

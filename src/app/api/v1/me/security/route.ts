@@ -13,6 +13,9 @@ const defaultBildirimler = [
   { id: 6, konu: "Şube yetkilisi değiştirildiğinde", eposta: true, sms: true, push: true },
   { id: 7, konu: "Ana kullanıcı parolası değiştirildiğinde", eposta: true, sms: true, push: true },
   { id: 8, konu: "Tehlikeli işlem (hesap silme, abonelik iptali) talebi olduğunda", eposta: true, sms: true, push: true },
+  { id: 9, konu: "Yeni SGK Giriş talebi oluşturulduğunda", eposta: true, sms: false, push: true },
+  { id: 10, konu: "Yeni SGK Çıkış talebi oluşturulduğunda", eposta: true, sms: false, push: true },
+  { id: 11, konu: "SGK talebi onaylandığında veya reddedildiğinde", eposta: true, sms: false, push: true },
 ];
 
 export const GET = createProtectedRouteHandler(async (_request, session) => {

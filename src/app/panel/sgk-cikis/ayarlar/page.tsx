@@ -5,9 +5,10 @@ import { toast } from "sonner";
 
 type CikisAyarlari = {
   seciliAlanlar: string[];
+  zorunluEvraklar: string[];
 };
 
-const DEFAULT_AYARLAR: CikisAyarlari = { seciliAlanlar: [] };
+const DEFAULT_AYARLAR: CikisAyarlari = { seciliAlanlar: [], zorunluEvraklar: [] };
 
 function loadAyarlar(): CikisAyarlari {
   return DEFAULT_AYARLAR;
@@ -16,6 +17,21 @@ function loadAyarlar(): CikisAyarlari {
 function saveAyarlar(a: CikisAyarlari) {
   void a;
 }
+
+const CIKIS_ZORUNLU_EVRAKLAR_LIST = [
+  "İstifa Dilekçesi",
+  "Fesih Bildirimi",
+  "İbraname / Çıkış Mutabakatı",
+  "Kıdem Tazminatı Bordrosu",
+  "İhbar Tazminatı Bordrosu",
+  "SGK Çıkış Bildirgesi",
+  "Zimmet İade Tutanağı",
+  "Gizlilik Sözleşmesi",
+  "İlişik Kesme Formu",
+  "Çıkış Mülakatı Formu",
+  "Devir Teslim Tutanağı",
+  "Manyetik Kart İade Tutanağı",
+];
 
 function CheckItem({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (id: string, v: boolean) => void }) {
   return (
@@ -99,6 +115,7 @@ export default function CikisTalepAyarlariPage() {
             ...DEFAULT_AYARLAR,
             ...json.data,
             seciliAlanlar: Array.isArray(json.data.seciliAlanlar) ? json.data.seciliAlanlar : [],
+            zorunluEvraklar: Array.isArray(json.data.zorunluEvraklar) ? json.data.zorunluEvraklar : [],
           });
         }
       } catch {}
@@ -141,6 +158,15 @@ export default function CikisTalepAyarlariPage() {
       seciliAlanlar: allChecked
         ? prev.seciliAlanlar.filter(s => !ids.includes(s))
         : [...new Set([...prev.seciliAlanlar, ...ids])],
+    }));
+  };
+
+  const toggleEvrak = (evrak: string, checked: boolean) => {
+    setAyarlar(prev => ({
+      ...prev,
+      zorunluEvraklar: checked
+        ? [...(prev.zorunluEvraklar || []), evrak]
+        : (prev.zorunluEvraklar || []).filter(x => x !== evrak),
     }));
   };
 
@@ -205,6 +231,39 @@ export default function CikisTalepAyarlariPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* Zorunlu Evraklar */}
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-[17px] font-black text-[#ef5a28]">Zorunlu Çıkış Evrakları</h2>
+              <p className="text-[12px] font-medium text-gray-400 mt-0.5">Çıkış talebinde yüklenmesi zorunlu olacak evrakları seçin.</p>
+            </div>
+            <button
+              onClick={() => {
+                const allChecked = CIKIS_ZORUNLU_EVRAKLAR_LIST.every(e => (ayarlar.zorunluEvraklar || []).includes(e));
+                setAyarlar(prev => ({
+                  ...prev,
+                  zorunluEvraklar: allChecked ? [] : [...CIKIS_ZORUNLU_EVRAKLAR_LIST],
+                }));
+              }}
+              className="text-[11.5px] font-bold text-[#ef5a28] hover:underline"
+            >
+              {CIKIS_ZORUNLU_EVRAKLAR_LIST.every(e => (ayarlar.zorunluEvraklar || []).includes(e)) ? "Tümünü Kaldır" : "Tümünü Seç"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {CIKIS_ZORUNLU_EVRAKLAR_LIST.map(evrak => (
+              <CheckItem
+                key={evrak}
+                id={evrak}
+                label={evrak}
+                checked={(ayarlar.zorunluEvraklar || []).includes(evrak)}
+                onChange={(id, val) => toggleEvrak(id, val)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>

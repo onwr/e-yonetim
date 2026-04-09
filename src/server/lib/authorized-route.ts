@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createProtectedRouteHandler } from "@/server/lib/protected-route";
-import { ensurePermission } from "@/server/lib/rbac";
+import { checkPermission, PermAction } from "@/server/lib/check-permission";
 
 type AuthorizedExecutor = (
   request: NextRequest,
@@ -8,12 +8,12 @@ type AuthorizedExecutor = (
 ) => Promise<NextResponse>;
 
 export function createAuthorizedRouteHandler(
-  resource: string,
-  action: string,
+  moduleId: string,
+  action: PermAction,
   executor: AuthorizedExecutor,
 ) {
   return createProtectedRouteHandler(async (request, session) => {
-    await ensurePermission(session.userId, resource, action);
+    await checkPermission(session.userId, session.tenantId, moduleId, action);
     return executor(request, session);
   });
 }

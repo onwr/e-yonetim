@@ -8,7 +8,7 @@ import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, context: Params) {
-  return createProtectedRouteHandler(async (_req, session) => {
+  return createAuthorizedRouteHandler("ku_4", "view", async (_req, session) => {
     const { id } = await context.params;
     const departman = await prisma.department.findFirst({
       where: { id, tenantId: session.tenantId, deletedAt: null },
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, context: Params) {
 }
 
 export async function PATCH(request: NextRequest, context: Params) {
-  return createAuthorizedRouteHandler("departman", "edit", async (req, session) => {
+  return createAuthorizedRouteHandler("ku_4", "edit", async (req, session) => {
     const { id } = await context.params;
     const payload = (await req.json()) as Record<string, unknown>;
     const updated = await prisma.department.update({
@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest, context: Params) {
 }
 
 export async function DELETE(request: NextRequest, context: Params) {
-  return createAuthorizedRouteHandler("departman", "delete", async (_req, session) => {
+  return createAuthorizedRouteHandler("ku_4", "delete", async (_req, session) => {
     const { id } = await context.params;
     const departman = await prisma.department.findFirst({
       where: { id, tenantId: session.tenantId, deletedAt: null },

@@ -121,7 +121,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
     // DB'yi güncelle (fire-and-forget)
-    void fetch(`/api/v1/notifications/${id}/read`, { method: "PATCH", credentials: "include" }).catch(() => {});
+    void fetch(`/api/v1/notifications/${id}`, { method: "PATCH", credentials: "include" }).catch(() => {});
   }, []);
 
   const markAllRead = useCallback(() => {

@@ -151,7 +151,7 @@ export async function createTalep(tenantId: string, type: "sgk-giris" | "sgk-cik
       if (emp) employeeId = emp.id;
     }
   }
-  return prisma.request.create({
+  const created = await prisma.request.create({
     data: {
       tenantId,
       type: mapType(type),
@@ -160,6 +160,44 @@ export async function createTalep(tenantId: string, type: "sgk-giris" | "sgk-cik
       ...(employeeId ? { employeeId } : {}),
     },
   });
+
+  // Admins'e bildirim gönder (sadece push tercihi açık olanlara)
+  try {
+    const adminUsers = await prisma.user.findMany({
+      where: { tenantId, deletedAt: null, isAnaKullanici: true },
+      select: { id: true, preferences: true },
+    });
+    const typeLabel = type === "sgk-giris" ? "SGK Giriş" : "SGK Çıkış";
+    // SGK bildirim konusu ID: giris=9, cikis=10
+    const bildirimId = type === "sgk-giris" ? 9 : 10;
+    const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const adSoyad = String(p.adSoyad ?? "").trim() || "Yeni Personel";
+
+    const filteredUsers = adminUsers.filter((u) => {
+      const prefs = u.preferences && typeof u.preferences === "object" && !Array.isArray(u.preferences)
+        ? (u.preferences as Record<string, unknown>)
+        : {};
+      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as any[] : null;
+      if (!bildirimler) return true; // Tercih yoksa varsayılan: gönder
+      const pref = bildirimler.find((b: any) => b.id === bildirimId);
+      return pref ? pref.push !== false : true;
+    });
+
+    if (filteredUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: filteredUsers.map((u) => ({
+          tenantId,
+          userId: u.id,
+          title: `Yeni ${typeLabel} Talebi`,
+          body: `${adSoyad} adlı personel için yeni bir ${typeLabel.toLowerCase()} talebi oluşturuldu.`,
+        })),
+      });
+    }
+  } catch {
+    // bildirim gönderemesek de talep oluşturuldu, sessizce geç
+  }
+
+  return created;
 }
 
 export async function updateTalepStatus(input: {
@@ -263,4 +301,40 @@ export async function updateTalepStatus(input: {
       });
     }
   });
+
+  // Onay/Red bildirimi — sadece push tercihi açık admin kullanıcılara (id=11)
+  try {
+    const adminUsers = await prisma.user.findMany({
+      where: { tenantId: input.tenantId, deletedAt: null, isAnaKullanici: true },
+      select: { id: true, preferences: true },
+    });
+    const rawPayload = talep.payload && typeof talep.payload === "object" ? (talep.payload as Record<string, unknown>) : {};
+    const adSoyad = String(rawPayload.adSoyad ?? "").trim() || "Personel";
+    const typeLabel = talep.type === RequestType.SGK_GIRIS ? "SGK Giriş" : "SGK Çıkış";
+    const durumLabel = input.status === RequestStatus.ONAYLANDI ? "Onaylandı" : "Reddedildi";
+    const emoji = input.status === RequestStatus.ONAYLANDI ? "✅" : "❌";
+
+    const filteredUsers = adminUsers.filter((u) => {
+      const prefs = u.preferences && typeof u.preferences === "object" && !Array.isArray(u.preferences)
+        ? (u.preferences as Record<string, unknown>)
+        : {};
+      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as any[] : null;
+      if (!bildirimler) return true;
+      const pref = bildirimler.find((b: any) => b.id === 11); // SGK onay/red
+      return pref ? pref.push !== false : true;
+    });
+
+    if (filteredUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: filteredUsers.map((u) => ({
+          tenantId: input.tenantId,
+          userId: u.id,
+          title: `${emoji} ${typeLabel} Talebi ${durumLabel}`,
+          body: `${adSoyad} adlı personelin ${typeLabel.toLowerCase()} talebi ${durumLabel.toLowerCase()}.${input.note ? ` Not: ${input.note}` : ""}`,
+        })),
+      });
+    }
+  } catch {
+    // bildirim gönderilemese de işlem tamamlandı
+  }
 }

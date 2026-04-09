@@ -28,11 +28,7 @@ export default function SgkCikisYeniTalepPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const [evraklar, setEvraklar] = useState([
-    { id: "istifa", isim: "İstifa Dilekçesi", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
-    { id: "fesih", isim: "Fesih Bildirimi", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
-    { id: "ibraname", isim: "İbraname / Çıkış Mutabakatı", durum: "bekliyor" as "bekliyor" | "yukleniyor" | "yuklendi", url: null as string | null },
-  ]);
+  const [evraklar, setEvraklar] = useState<{ id: string; isim: string; durum: "bekliyor" | "yukleniyor" | "yuklendi"; url: string | null }[]>([]);
 
   const handleEvrakYukle = async (id: string, file: File) => {
     if (!file) return;
@@ -58,26 +54,64 @@ export default function SgkCikisYeniTalepPage() {
 
   useEffect(() => {
     void (async () => {
-      const response = await fetch("/api/v1/personel?page=1&pageSize=500", { credentials: "include" });
-      if (!response.ok) return;
-      const json = (await response.json()) as { success?: boolean; data?: any[] };
-      if (!json.success || !Array.isArray(json.data)) return;
-      setPersoneller(
-        json.data.map((item) => {
-          const j =
-            item.personelJson && typeof item.personelJson === "object" && !Array.isArray(item.personelJson)
-              ? (item.personelJson as Record<string, unknown>)
-              : {};
-          return {
-            ...item,
-            ...j,
-            adSoyad: String(item.adSoyad ?? j.adSoyad ?? "").trim(),
-            tckn: String(item.tckn ?? j.tckn ?? "").trim(),
-            unvan: item.unvan != null && String(item.unvan).trim() ? item.unvan : j.unvan ?? item.unvan,
-            org: item.org != null && String(item.org).trim() ? item.org : j.org ?? item.org,
-          };
-        }),
-      );
+      try {
+        const [personelRes, ayarlarRes] = await Promise.all([
+          fetch("/api/v1/personel?page=1&pageSize=500", { credentials: "include" }),
+          fetch("/api/v1/ayarlar/sgk-cikis", { credentials: "include" }),
+        ]);
+
+        if (personelRes.ok) {
+          const json = (await personelRes.json()) as { success?: boolean; data?: any[] };
+          if (json.success && Array.isArray(json.data)) {
+            setPersoneller(
+              json.data.map((item) => {
+                const j =
+                  item.personelJson && typeof item.personelJson === "object" && !Array.isArray(item.personelJson)
+                    ? (item.personelJson as Record<string, unknown>)
+                    : {};
+                return {
+                  ...item,
+                  ...j,
+                  adSoyad: String(item.adSoyad ?? j.adSoyad ?? "").trim(),
+                  tckn: String(item.tckn ?? j.tckn ?? "").trim(),
+                  unvan: item.unvan != null && String(item.unvan).trim() ? item.unvan : j.unvan ?? item.unvan,
+                  org: item.org != null && String(item.org).trim() ? item.org : j.org ?? item.org,
+                };
+              }),
+            );
+          }
+        }
+
+        // Ayarlardan zorunlu evrakları çek
+        if (ayarlarRes.ok) {
+          const ayarlarJson = (await ayarlarRes.json()) as { success?: boolean; data?: { seciliAlanlar?: string[]; zorunluEvraklar?: string[] } };
+          const zorunluEvraklar = ayarlarJson?.data?.zorunluEvraklar;
+          if (Array.isArray(zorunluEvraklar) && zorunluEvraklar.length > 0) {
+            setEvraklar(
+              zorunluEvraklar.map(isim => ({
+                id: isim.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, ''),
+                isim,
+                durum: "bekliyor" as const,
+                url: null,
+              }))
+            );
+          } else {
+            // Ayarlarda evrak tanımlanmamışsa varsayılan 3 evrakı kullan
+            setEvraklar([
+              { id: "istifa", isim: "İstifa Dilekçesi", durum: "bekliyor", url: null },
+              { id: "fesih", isim: "Fesih Bildirimi", durum: "bekliyor", url: null },
+              { id: "ibraname", isim: "İbraname / Çıkış Mutabakatı", durum: "bekliyor", url: null },
+            ]);
+          }
+        }
+      } catch {
+        // Hata durumunda varsayılan evraklar
+        setEvraklar([
+          { id: "istifa", isim: "İstifa Dilekçesi", durum: "bekliyor", url: null },
+          { id: "fesih", isim: "Fesih Bildirimi", durum: "bekliyor", url: null },
+          { id: "ibraname", isim: "İbraname / Çıkış Mutabakatı", durum: "bekliyor", url: null },
+        ]);
+      }
     })();
   }, []);
 

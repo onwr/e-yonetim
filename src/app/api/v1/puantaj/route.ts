@@ -4,7 +4,9 @@ import { ok } from "@/server/lib/response";
 import { badRequest } from "@/server/lib/errors";
 import { getPuantaj, upsertPuantaj } from "@/server/modules/puantaj/service";
 
-export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
+import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
+
+export const GET = createAuthorizedRouteHandler("yo_1", "view", async (request: NextRequest, session) => {
   const year = Number(request.nextUrl.searchParams.get("year"));
   const month = Number(request.nextUrl.searchParams.get("month"));
   if (!Number.isFinite(year) || !Number.isFinite(month)) {
@@ -14,7 +16,7 @@ export const GET = createProtectedRouteHandler(async (request: NextRequest, sess
   return ok(rows);
 });
 
-export const PUT = createProtectedRouteHandler(async (request: NextRequest, session) => {
+export const PUT = createAuthorizedRouteHandler("yo_1", "edit", async (request: NextRequest, session) => {
   const payload = (await request.json()) as Array<{
     employeeId: string;
     year: number;

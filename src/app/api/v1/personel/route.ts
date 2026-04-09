@@ -6,7 +6,7 @@ import { getPagination } from "@/server/lib/request-context";
 import { listPersonel } from "@/server/modules/personel/service";
 import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
 
-export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
+export const GET = createAuthorizedRouteHandler("ik_1", "view", async (request: NextRequest, session) => {
   const { page, pageSize, skip, take } = getPagination(request.nextUrl.searchParams);
   const q = request.nextUrl.searchParams.get("q") ?? undefined;
   const result = await listPersonel({
@@ -18,7 +18,7 @@ export const GET = createProtectedRouteHandler(async (request: NextRequest, sess
   return ok(result.items, { page, pageSize, total: result.total });
 });
 
-export const POST = createAuthorizedRouteHandler("personel", "create", async (request: NextRequest, session) => {
+export const POST = createAuthorizedRouteHandler("ik_2", "create", async (request: NextRequest, session) => {
   const payload = (await request.json()) as Record<string, unknown>;
   const createdPersonel = await prisma.employee.create({
     data: {

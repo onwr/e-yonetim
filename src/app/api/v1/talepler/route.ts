@@ -5,7 +5,10 @@ import { getPagination } from "@/server/lib/request-context";
 import { listTalepler, createTalep } from "@/server/modules/talepler/service";
 import { writeAuditLog } from "@/server/lib/audit";
 
-export const GET = createProtectedRouteHandler(async (request: NextRequest, session) => {
+import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
+import { checkPermission } from "@/server/lib/check-permission";
+
+export const GET = createAuthorizedRouteHandler("op_2", "view", async (request: NextRequest, session) => {
   const { page, pageSize, skip, take } = getPagination(request.nextUrl.searchParams);
   const type = request.nextUrl.searchParams.get("type") ?? undefined;
   const status =
@@ -27,6 +30,13 @@ export const GET = createProtectedRouteHandler(async (request: NextRequest, sess
 export const POST = createProtectedRouteHandler(async (request: NextRequest, session) => {
   const payload = (await request.json()) as { type: "sgk-giris" | "sgk-cikis"; [key: string]: unknown };
   const { type, ...rest } = payload;
+  
+  if (type === "sgk-giris") {
+    await checkPermission(session.userId, session.tenantId, "ik_3", "create");
+  } else if (type === "sgk-cikis") {
+    await checkPermission(session.userId, session.tenantId, "ik_5", "create");
+  }
+
   const talep = await createTalep(session.tenantId, type, rest);
   await writeAuditLog({
     tenantId: session.tenantId,

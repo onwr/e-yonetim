@@ -4,12 +4,14 @@ import { ok } from "@/server/lib/response";
 import { getFirma, updateFirma } from "@/server/modules/firma/service";
 import { writeAuditLog } from "@/server/lib/audit";
 
-export const GET = createProtectedRouteHandler(async (_request, session) => {
+import { createAuthorizedRouteHandler } from "@/server/lib/authorized-route";
+
+export const GET = createAuthorizedRouteHandler("ku_1", "view", async (_request, session) => {
   const firma = await getFirma(session.tenantId);
   return ok(firma, { requestId: session.requestId });
 });
 
-export const PUT = createProtectedRouteHandler(async (request: NextRequest, session) => {
+export const PUT = createAuthorizedRouteHandler("ku_1", "edit", async (request: NextRequest, session) => {
   const payload = (await request.json()) as Record<string, unknown>;
   const firma = await updateFirma(session.tenantId, payload);
   await writeAuditLog({

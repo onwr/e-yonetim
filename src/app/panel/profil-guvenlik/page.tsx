@@ -47,6 +47,9 @@ export default function ProfilGuvenlikPage() {
     { id: 6, konu: "Şube yetkilisi değiştirildiğinde", eposta: true, sms: true, push: true },
     { id: 7, konu: "Ana kullanıcı parolası değiştirildiğinde", eposta: true, sms: true, push: true },
     { id: 8, konu: "Tehlikeli işlem (hesap silme, abonelik iptali) talebi olduğunda", eposta: true, sms: true, push: true },
+    { id: 9, konu: "Yeni SGK Giriş talebi oluşturulduğunda", eposta: true, sms: false, push: true },
+    { id: 10, konu: "Yeni SGK Çıkış talebi oluşturulduğunda", eposta: true, sms: false, push: true },
+    { id: 11, konu: "SGK talebi onaylandığında veya reddedildiğinde", eposta: true, sms: false, push: true },
   ]);
 
   useEffect(() => {
@@ -115,10 +118,20 @@ export default function ProfilGuvenlikPage() {
 
   const [sifreHata, setSifreHata] = useState("");
   const [sifreSuccess, setSifreSuccess] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsSending, setSmsGonderiliyor] = useState(false);
+  const [sifreGuncelleniyor, setSifreGuncelleniyor] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
-  const handleGuncelle = async () => {
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  // Adım 1: SMS Gönder
+  const handleSmsSend = async () => {
     setSifreHata("");
-    setSifreSuccess(false);
     if (!mevcutSifre || !yeniSifre || yeniSifre !== yeniSifreTekrar) {
       setSifreHata("Şifre alanlarını eksiksiz ve doğru doldurunuz.");
       return;
@@ -127,20 +140,48 @@ export default function ProfilGuvenlikPage() {
       setSifreHata("Şifre tüm kuralları karşılamalıdır.");
       return;
     }
+    setSmsGonderiliyor(true);
+    try {
+      await fetchJsonWithError("/api/v1/me/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword: mevcutSifre, newPassword: yeniSifre }),
+      });
+      setSmsSent(true);
+      setSmsKodu("");
+      setCountdown(300); // 5 dakika geri sayım
+    } catch (e) {
+      setSifreHata(e instanceof Error ? e.message : "SMS gönderilemedi.");
+    } finally {
+      setSmsGonderiliyor(false);
+    }
+  };
+
+  // Adım 2: Kodu doğrula + şifreyi değiştir
+  const handleGuncelle = async () => {
+    setSifreHata("");
+    setSifreSuccess(false);
+    if (!smsKodu || smsKodu.length < 6) {
+      setSifreHata("Lütfen 6 haneli SMS kodunu giriniz.");
+      return;
+    }
+    setSifreGuncelleniyor(true);
     try {
       await fetchJsonWithError("/api/v1/me/password", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPassword: mevcutSifre, newPassword: yeniSifre }),
+        body: JSON.stringify({ smsKodu }),
       });
       setSifreSuccess(true);
       setTimeout(() => {
         setView("main");
         setMevcutSifre(""); setYeniSifre(""); setYeniSifreTekrar(""); setSmsKodu("");
-        setSifreSuccess(false);
+        setSifreSuccess(false); setSmsSent(false); setCountdown(0);
       }, 1500);
     } catch (e) {
       setSifreHata(e instanceof Error ? e.message : "Şifre güncellenemedi.");
+    } finally {
+      setSifreGuncelleniyor(false);
     }
   };
 
@@ -315,41 +356,82 @@ export default function ProfilGuvenlikPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-[12px] font-extrabold text-[#172b4d]">SMS Doğrulama Kodu</label>
-                <div className="flex flex-wrap sm:flex-nowrap gap-4">
-                  <div className="w-full sm:max-w-[300px] relative shrink-0">
-                    <Bell className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#172b4d]" />
-                    <input 
-                      type="text" 
-                      value={smsKodu} onChange={e => setSmsKodu(e.target.value)}
-                      placeholder="6 Haneli Kod (Örn: 123456)"
-                      className="w-full pl-10 pr-16 py-3 bg-white border border-gray-200 rounded-xl text-[13px] font-extrabold text-[#172b4d] outline-none focus:border-[#0052cc] focus:ring-1 focus:ring-[#0052cc] transition-all placeholder-gray-400"
-                    />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#70809b] text-white text-[10px] font-bold px-2 py-1.5 rounded-md">
-                      2:54
+              {/* SMS Doğrulama Bölümü */}
+              <div className="flex flex-col gap-3">
+                {!smsSent ? (
+                  /* Adım 1: SMS gönder butonu */
+                  <button
+                    onClick={() => void handleSmsSend()}
+                    disabled={!allRulesMet || !mevcutSifre || yeniSifre !== yeniSifreTekrar || smsSending}
+                    className="w-full py-3 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-sm disabled:cursor-not-allowed"
+                    style={allRulesMet && mevcutSifre && yeniSifre === yeniSifreTekrar && !smsSending
+                      ? { backgroundColor: "#0052cc", color: "white", boxShadow: "0 2px 10px rgba(0,82,204,0.3)" }
+                      : { backgroundColor: "#e2e6ea", color: "#8993a4" }}
+                  >
+                    {smsSending ? (
+                      <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />SMS Gönderiliyor...</>
+                    ) : (
+                      <><Bell className="w-4 h-4" />SMS Doğrulama Kodu Gönder</>
+                    )}
+                  </button>
+                ) : (
+                  /* Adım 2: Kod girişi + doğrula */
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                      <Bell className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <p className="text-[12.5px] font-semibold text-blue-700">
+                        Kayıtlı telefon numaranıza 6 haneli doğrulama kodu gönderildi.
+                        {countdown > 0 && <span className="ml-1 font-extrabold text-blue-900">{Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")} kaldı</span>}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap sm:flex-nowrap gap-3">
+                      <div className="relative flex-1 min-w-[200px]">
+                        <Bell className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#172b4d]" />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={smsKodu}
+                          onChange={e => setSmsKodu(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="6 Haneli Kod"
+                          className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-[14px] font-extrabold text-[#172b4d] outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-[#0052cc]/10 transition-all placeholder-gray-400 tracking-[0.2em]"
+                        />
+                      </div>
+                      <button
+                        onClick={() => void handleGuncelle()}
+                        disabled={smsKodu.length < 6 || sifreGuncelleniyor}
+                        className="flex-1 min-w-[160px] py-3 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all disabled:cursor-not-allowed"
+                        style={smsKodu.length === 6 && !sifreGuncelleniyor
+                          ? { backgroundColor: "#22c55e", color: "white", boxShadow: "0 2px 10px rgba(34,197,94,0.3)" }
+                          : { backgroundColor: "#e2e6ea", color: "#8993a4" }}
+                      >
+                        {sifreGuncelleniyor ? (
+                          <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Güncelleniyor...</>
+                        ) : sifreSuccess ? (
+                          <><Check className="w-4 h-4" />Güncellendi ✓</>
+                        ) : (
+                          <><Check className="w-4 h-4" />Şifreyi Güncelle</>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => { setSmsSent(false); setCountdown(0); setSmsKodu(""); }}
+                        disabled={countdown > 270}
+                        className="px-4 py-3 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 font-extrabold text-[12px] rounded-xl transition-colors flex items-center gap-2 flex-shrink-0"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />Tekrar
+                      </button>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => void handleGuncelle()}
-                    disabled={!allRulesMet || !mevcutSifre || yeniSifre !== yeniSifreTekrar}
-                    className="flex-1 min-w-[180px] bg-gray-300 disabled:bg-gray-300 disabled:text-white hover:bg-[#1a8b43] disabled:hover:bg-gray-300 disabled:cursor-not-allowed text-white font-extrabold text-[13px] rounded-xl transition-colors flex items-center justify-center gap-2 py-3"
-                    style={allRulesMet && mevcutSifre && yeniSifre === yeniSifreTekrar ? {backgroundColor: "#22c55e", boxShadow: "0 2px 10px rgba(34, 197, 94, 0.3)"} : {}}
-                  >
-                    <Check className="w-4 h-4" /> {sifreSuccess ? "Güncellendi ✓" : "Şifreyi Güncelle"}
-                  </button>
-                  <button className="flex-1 min-w-[180px] bg-[#e3e6ec] hover:bg-[#d0d4df] text-gray-500 font-extrabold hover:text-[#172b4d] text-[13px] rounded-xl transition-colors flex items-center justify-center gap-2 py-3">
-                    <RefreshCw className="w-4 h-4" /> Yeni SMS Kodu Gönder
-                  </button>
-                </div>
+                )}
               </div>
               {sifreHata && (
-                <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-red-600">{sifreHata}</div>
+                <div className="mt-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-red-600">{sifreHata}</div>
               )}
               {sifreSuccess && (
-                <div className="mt-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-green-600">✓ Şifreniz başarıyla güncellendi. Ana sayfaya yönlendiriliyorsunuz...</div>
+                <div className="mt-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-green-600">✓ Şifreniz başarıyla güncellendi. Ana sayfaya yönlendiriliyorsunuz...</div>
               )}
             </div>
+
           ) : (
             <div className="relative animate-scale-in">
               <button 
