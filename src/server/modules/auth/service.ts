@@ -39,13 +39,13 @@ async function createAndSendSmsVerification(input: {
 
   const record = await prisma.smsVerification.create({
     data: {
-      tenantId: input.tenantId ? input.tenantId : null,
-      userId: input.userId ? input.userId : null,
+      tenantId: input.tenantId || undefined,
+      userId: input.userId || undefined,
       telefon: normalizeTrPhone(input.telefon),
       type: input.type,
       codeHash,
       expiresAt,
-      payload: input.payload ? JSON.parse(JSON.stringify(input.payload)) : null
+      payload: input.payload ? JSON.parse(JSON.stringify(input.payload)) : undefined
     },
   });
 
