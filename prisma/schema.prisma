@@ -28,6 +28,7 @@ enum RequestStatus {
 enum SmsVerificationType {
   register
   login
+  forgot_password
 }
 
 model Tenant {
@@ -95,7 +96,7 @@ model User {
 
 model SmsVerification {
   id        String               @id @default(cuid())
-  tenantId  String
+  tenantId  String?
   userId    String?
   telefon   String
   type      SmsVerificationType
@@ -103,9 +104,10 @@ model SmsVerification {
   expiresAt DateTime
   usedAt    DateTime?
   attempts  Int                  @default(0)
+  payload   Json?
   createdAt DateTime             @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
 
   @@index([tenantId, telefon, type, createdAt])

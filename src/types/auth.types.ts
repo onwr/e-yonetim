@@ -22,13 +22,14 @@ export interface LoginResponseDTO {
   success: boolean;
   message: string;
   token?: string; 
-  telefon?: string; 
+  telefon?: string;       // masked - display only
+  rawTelefon?: string;    // real - used for SMS verify API
   smsBypassed?: boolean;
 }
 export interface SmsVerifyRequestDTO {
   telefon: string;
   smsKodu: string;
-  type: "register" | "login";
+  type: "register" | "login" | "forgot_password";
 }
 export interface SmsVerifyResponseDTO {
   success: boolean;

@@ -72,10 +72,13 @@ export default function UyeOl() {
             ) : (
               <SmsVerificationForm
                 telefon={telefon}
+                type="register"
                 onBack={() => setStep(1)}
                 onSuccess={(kodu) => {
+                  // kodu = firmaKodu returned from verifySmsAndCreateSession after real DB creation
                   setFirmaKodu(kodu);
                   setIsSuccess(true);
+                  // Session cookie zaten sunucu tarafında ayarlandı, onboarding'i şimdi kaydedebiliriz
                   if (userData) persistAnaKullaniciOnboarding(userData, userData.telefon);
                 }}
               />

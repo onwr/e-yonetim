@@ -2,18 +2,21 @@
 import { useState, useEffect, FormEvent } from "react";
 import { MessageSquare, Check, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
 import { AuthService } from "@/services/auth.service";
-  import { toast } from "sonner";
+import { toast } from "sonner";
 export default function SmsVerificationForm({ 
   telefon, 
+  verifyTelefon,
   onBack, 
   onSuccess,
   type = "register"
 }: { 
-  telefon: string, 
+  telefon: string,          // display only (can be masked)
+  verifyTelefon?: string,   // actual phone for API calls (optional, falls back to telefon)
   onBack: () => void, 
   onSuccess: (kodu: string) => void,
-  type?: "register" | "login"
+  type?: "register" | "login" | "forgot_password"
 }) {
+  const apiTelefon = verifyTelefon || telefon; // real phone for API
   const [smsKodu, setSmsKodu] = useState("");
   const [timeLeft, setTimeLeft] = useState(270);
   const [isWrongCode, setIsWrongCode] = useState(false);
@@ -36,7 +39,7 @@ export default function SmsVerificationForm({
     setIsLoading(true);
     setIsWrongCode(false);
     try {
-      const response = await AuthService.verifySms({ telefon, smsKodu, type });
+      const response = await AuthService.verifySms({ telefon: apiTelefon, smsKodu, type });
       if (response.success) onSuccess(response.firmaKodu || "");
     } catch (error) {
       console.error(error);
@@ -122,7 +125,7 @@ export default function SmsVerificationForm({
               void (async () => {
                 try {
                   setIsResending(true);
-                  await AuthService.resendSms({ telefon, type });
+                  await AuthService.resendSms({ telefon: apiTelefon, type });
                   toast.success("Yeni SMS kodu gönderildi.");
                   setTimeLeft(270);
                   setSmsKodu("");

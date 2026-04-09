@@ -45,14 +45,15 @@ export const AuthService = {
     };
   },
   async login(data: LoginRequestDTO): Promise<LoginResponseDTO> {
-    const apiData = await requestJson<{ message: string; telefon: string; smsBypassed?: boolean }>(
+    const apiData = await requestJson<{ message: string; telefon: string; maskedTelefon?: string; smsBypassed?: boolean }>(
       "/api/v1/auth/login",
       data,
     );
     return {
       success: true,
       message: apiData.message,
-      telefon: apiData.telefon,
+      telefon: apiData.maskedTelefon ?? apiData.telefon, // display (masked)
+      rawTelefon: apiData.telefon,                       // real phone for verify
       smsBypassed: apiData.smsBypassed,
     };
   },
@@ -68,8 +69,20 @@ export const AuthService = {
       token: apiData.token,
     };
   },
-  async resendSms(data: { telefon: string; type: "register" | "login" }): Promise<{ success: boolean; message: string }> {
+  async resendSms(data: { telefon: string; type: "register" | "login" | "forgot_password" }): Promise<{ success: boolean; message: string }> {
     const apiData = await requestJson<{ message: string }>("/api/v1/auth/resend-sms", data);
+    return { success: true, message: apiData.message };
+  },
+  async forgotFirmaKodu(data: { tckn: string; telefon: string }): Promise<{ success: boolean; message: string }> {
+    const apiData = await requestJson<{ message: string }>("/api/v1/auth/forgot-firma-kodu", data);
+    return { success: true, message: apiData.message };
+  },
+  async sendForgotPasswordSms(data: { firmaKodu: string; tckn: string; telefon: string }): Promise<{ success: boolean; message: string; telefon: string }> {
+    const apiData = await requestJson<{ message: string; telefon: string }>("/api/v1/auth/forgot-password-sms", data);
+    return { success: true, message: apiData.message, telefon: apiData.telefon };
+  },
+  async resetPassword(data: { telefon: string; yeniSifre: string }): Promise<{ success: boolean; message: string }> {
+    const apiData = await requestJson<{ message: string }>("/api/v1/auth/reset-password", data);
     return { success: true, message: apiData.message };
   }
 };

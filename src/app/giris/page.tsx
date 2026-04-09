@@ -13,7 +13,8 @@ export default function Giris() {
   const [step, setStep] = useState(1);
   const [firmaKodu, setFirmaKodu] = useState("");
   const [tckn, settckn] = useState("");
-  const [telefon, setTelefon] = useState("");
+  const [telefon, setTelefon] = useState("");         // masked - display only
+  const [rawTelefon, setRawTelefon] = useState("");   // real - used for verify API
   const [sifre, setSifre] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -47,7 +48,8 @@ export default function Giris() {
           return;
         }
         toast.success("Bilgiler doğru. SMS doğrulaması gerekiyor.");
-        setTelefon(response.telefon);
+        setTelefon(response.telefon);         // masked - for display
+        setRawTelefon(response.rawTelefon ?? response.telefon ?? ""); // real - for verify
         setStep(2);
       }
     } catch (error) {
@@ -58,11 +60,11 @@ export default function Giris() {
     }
   };
   const handleSmsSuccess = () => {
-    alert("Giriş Başarılı! Sisteme yönlendiriliyorsunuz...");
+    toast.success("Giriş başarılı! Sisteme yönlendiriliyorsunuz...");
     setIsSuccess(true);
     setTimeout(() => {
       router.push("/panel");
-    }, 1500);
+    }, 1200);
   };
   return (
     <main className="h-screen w-full flex bg-white font-sans text-[#172b4d] overflow-hidden relative">
@@ -141,7 +143,7 @@ export default function Giris() {
                 <p className="mt-1.5 text-xs text-gray-400 font-medium">Zorunlu Alan</p>
               </div>
               <div className="flex justify-end pt-2 pb-4">
-                <Link href="#" className="text-[12.5px] font-bold text-[#6b778c] hover:text-[#0052cc] transition-colors">
+                <Link href="/sifre-unuttum" className="text-[12.5px] font-bold text-[#6b778c] hover:text-[#0052cc] transition-colors">
                   Şifremi veya Firma Kodumu Unuttum
                 </Link>
               </div>
@@ -173,6 +175,7 @@ export default function Giris() {
           ) : (
             <SmsVerificationForm
               telefon={telefon}
+              verifyTelefon={rawTelefon}
               onBack={() => setStep(1)}
               onSuccess={handleSmsSuccess}
               type="login"

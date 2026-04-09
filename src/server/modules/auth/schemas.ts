@@ -18,10 +18,26 @@ export const loginSchema = z.object({
 export const verifySmsSchema = z.object({
   telefon: z.string().min(10),
   smsKodu: z.string().regex(/^\d{6}$/),
-  type: z.enum(["register", "login"]),
+  type: z.enum(["register", "login", "forgot_password"]),
 });
 
 export const resendSmsSchema = z.object({
   telefon: z.string().min(10),
-  type: z.enum(["register", "login"]),
+  type: z.enum(["register", "login", "forgot_password"]),
+});
+
+export const forgotPasswordSchema = z.object({
+  firmaKodu: z.string().regex(/^\d{5}$/),
+  tckn: z.string().regex(/^\d{11}$/),
+  telefon: z.string().min(10),
+});
+
+export const resetPasswordSchema = z.object({
+  telefon: z.string().min(10),
+  yeniSifre: z.string().min(6),
+});
+
+export const forgotFirmaKoduSchema = z.object({
+  tckn: z.string().regex(/^\d{11}$/),
+  telefon: z.string().min(10),
 });
