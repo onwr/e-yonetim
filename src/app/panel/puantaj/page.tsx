@@ -180,7 +180,7 @@ function payrollEntriesToOvertimeData(entries: unknown[]): OvertimeData {
 
   for (const e of entries) {
     if (!e || typeof e !== "object") continue;
-    const row = e as { employeeId?: string; overtime?: unknown };
+    const row = e as { employeeId?: string; overtime?: unknown; payload?: unknown; data?: unknown };
     const pid = row.employeeId;
     if (!pid) continue;
 
