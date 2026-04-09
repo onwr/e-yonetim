@@ -139,6 +139,67 @@ const DateField = ({ label, value, onChange, required = false, disabled = false 
   </div>
 );
 
+const AutocompleteField = ({ label, value, onChange, placeholder = "", required = false, disabled = false }: any) => {
+  const [options, setOptions] = useState<{kod: string; ad: string}[]>([]);
+  const [search, setSearch] = useState(value || "");
+  const [isOpen, setIsOpen] = useState(false);
+  
+  useEffect(() => {
+    fetchJsonWithError<any[]>("/api/v1/referans/meslek-kodlari")
+      .then(res => setOptions(res))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setSearch(value || "");
+  }, [value]);
+
+  const filtered = search && isOpen 
+    ? options.filter(o => o.ad.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR')) || o.kod.includes(search)).slice(0, 50)
+    : [];
+
+  return (
+    <div className={`flex flex-col gap-1.5 relative ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+      <label className="text-[12px] font-extrabold text-[#172b4d] flex items-center gap-1">
+        {label} {required && !disabled && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={`w-full px-4 py-2.5 rounded-xl border-2 border-gray-100 outline-none text-[13.5px] font-medium text-[#172b4d] transition-all placeholder:text-gray-400 ${disabled ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed' : 'hover:border-gray-200 focus:border-[#ef5a28] focus:ring-4 focus:ring-[#ef5a28]/10'}`}
+      />
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50">
+          {filtered.map(opt => (
+            <div 
+              key={opt.kod}
+              onClick={() => {
+                const val = `${opt.kod} - ${opt.ad}`;
+                setSearch(val);
+                onChange(val);
+                setIsOpen(false);
+              }}
+              className="px-4 py-2 text-[13px] text-[#172b4d] hover:bg-gray-50 cursor-pointer font-medium border-b border-gray-50 last:border-0"
+            >
+              <span className="text-[#ef5a28] font-bold mr-2">{opt.kod}</span>
+              {opt.ad}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function SgkGirisYeniTalepPage() {
   const router = useRouter();
   const { firmaData } = useOnboarding();
@@ -205,6 +266,16 @@ export default function SgkGirisYeniTalepPage() {
 
   const handleFormSubmit = async () => {
     if (isSubmitting) return;
+
+    // Zorunlu alan kontrolü
+    const missingFields = ayarlar.zorunluAlanlar.filter(
+      (f) => !formData[f as keyof SgkGirisFormState]?.toString().trim()
+    );
+    if (missingFields.length > 0) {
+      toast.error("Lütfen tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const adSoyad = `${formData.ad} ${formData.soyad}`.trim();
@@ -985,7 +1056,7 @@ export default function SgkGirisYeniTalepPage() {
               freeText
               required={isRequired('birim')}
             />
-            <TextField label="Görevi - Mesleği" value={formData.gorevi} onChange={(v: string) => updateField('gorevi', v)} placeholder="Meslek kodu veya adı ile arayın..." />
+            <AutocompleteField label="Görevi - Mesleği" value={formData.gorevi} onChange={(v: string) => updateField('gorevi', v)} placeholder="Meslek kodu veya adı ile arayın..." required={isRequired('gorevi')} />
             <SelectField label="Takımı - Sınıfı" value={formData.takimi} onChange={(v: string) => updateField('takimi', v)} options={['A Takımı', 'B Takımı']} />
 
             <TextField label="Ekip Sorumlusu" value={formData.ekipSorumlusu} onChange={(v: string) => updateField('ekipSorumlusu', v)} />
