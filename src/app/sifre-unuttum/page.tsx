@@ -38,7 +38,7 @@ export default function SifreUnuttum() {
 
   const isFirmaKoduFormValid = tckn.length === 11 && telefon.length >= 10;
   const isSifreFormValid = firmaKodu.length === 5 && tckn.length === 11 && telefon.length >= 10;
-  const isYeniSifreValid = yeniSifre.length >= 6;
+  const isYeniSifreValid = yeniSifre.length >= 8;
 
   const handleFirmaKoduSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -60,7 +60,7 @@ export default function SifreUnuttum() {
     if (!isSifreFormValid || isLoading) return;
     setIsLoading(true);
     try {
-      const res = await AuthService.sendForgotPasswordSms({ firmaKodu, tckn, telefon });
+      await AuthService.sendForgotPasswordSms({ firmaKodu, tckn, telefon });
       toast.success("Şifre sıfırlama kodunuz SMS olarak gönderildi.");
       setStep(2);
     } catch (error) {
@@ -265,7 +265,7 @@ export default function SifreUnuttum() {
                     type="password"
                     value={yeniSifre}
                     onChange={(e) => setYeniSifre(e.target.value)}
-                    placeholder="En az 6 karakter"
+                    placeholder="En az 8 karakter"
                     className="block w-full pl-10 pr-4 py-[14px] border border-gray-200 rounded-xl focus:ring-4 focus:ring-green-600/15 focus:border-green-600 text-[15px] outline-none transition-all duration-300 shadow-sm"
                   />
                 </div>

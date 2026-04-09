@@ -1,35 +1,37 @@
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
+const prisma = new PrismaClient();
 
-async function testSMS() {
-  const username = "5437130857";
-  const password = "Aa173680**";
-  const header = "HEDABILISIM";
-  const formattedPhone = "05437130857"; // Kendi numaranız veya test numarası
-  const message = "Test mesaji";
+async function testSms() {
+  const code = '123456';
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
 
-  const apiUrl = "https://api.netgsm.com.tr/sms/send/get";
+  const input = {
+    telefon: 'vbilmemkacv3',
+    type: 'register',
+    payload: { adSoyad: 'Test', tckn: '12312312311', eposta: 'test@h.com', telefon: '5551234567', sifreHash: 'abc' }
+  };
 
-  const requestData = new URLSearchParams({
-    usercode: username,
-    password: password,
-    gsmno: formattedPhone,
-    message: message,
-    msgheader: header,
-    dil: "TR",
-  });
-
-  console.log("Request Body:", requestData.toString());
-
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: requestData.toString(),
-  });
-
-  const responseText = await response.text();
-  console.log("Response:", responseText);
+  try {
+    const record = await prisma.smsVerification.create({
+      data: {
+        tenantId: input.tenantId || undefined,
+        userId: input.userId || undefined,
+        telefon: '5551234567',
+        type: input.type,
+        codeHash,
+        expiresAt,
+        payload: input.payload ? JSON.parse(JSON.stringify(input.payload)) : undefined
+      },
+    });
+    console.log("Success:", record);
+  } catch (error) {
+    console.error("Prisma Error:", error.message);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-testSMS();
+testSms();
