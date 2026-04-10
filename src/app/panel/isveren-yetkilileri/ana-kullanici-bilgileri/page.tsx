@@ -307,39 +307,61 @@ export default function AnaKullaniciBilgileriPage() {
           <div className="flex flex-col gap-2 relative">
              <div className="flex items-center gap-2">
                <label className="text-[12.5px] font-extrabold text-[#172b4d]">Ad Soyad</label>
-               <span className="text-[10px] font-bold text-[#e67e22] flex items-center gap-1.5"><Lock className="w-3 h-3"/> Değiştirilemez</span>
+               {contextFormData.adSoyad ? (
+                 <span className="text-[10px] font-bold text-[#e67e22] flex items-center gap-1.5"><Lock className="w-3 h-3"/> Değiştirilemez</span>
+               ) : (
+                 <span className="text-[10px] font-bold text-red-500">* Zorunlu Alan</span>
+               )}
              </div>
              <div className="relative">
                <input 
-                  name="adSoyad" value={formData.adSoyad} disabled
+                  name="adSoyad" value={formData.adSoyad} disabled={Boolean(contextFormData.adSoyad)}
+                  onChange={handleChange}
                   type="text" placeholder="Ad Soyad"
-                  className="w-full h-12 px-4 pr-10 text-[14px] font-semibold rounded-xl border border-gray-100 outline-none transition-all text-[#172b4d] bg-[#f8f9fa] cursor-not-allowed"
+                  className={contextFormData.adSoyad 
+                    ? "w-full h-12 px-4 pr-10 text-[14px] font-semibold rounded-xl border border-gray-100 outline-none transition-all text-[#172b4d] bg-[#f8f9fa] cursor-not-allowed" 
+                    : getInputClass(formData.adSoyad)}
                 />
-                <Lock className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                {contextFormData.adSoyad && <Lock className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2" />}
              </div>
-             <div className="flex items-center gap-1.5 mt-0.5">
-                <AlertTriangle className="w-3 h-3 text-[#e67e22]" />
-                <span className="text-[10.5px] font-bold text-[#e67e22]">Değişiklik için destek talebi oluşturun.</span>
-             </div>
+             {contextFormData.adSoyad && (
+               <div className="flex items-center gap-1.5 mt-0.5">
+                  <AlertTriangle className="w-3 h-3 text-[#e67e22]" />
+                  <span className="text-[10.5px] font-bold text-[#e67e22]">Değişiklik için destek talebi oluşturun.</span>
+               </div>
+             )}
           </div>
 
           <div className="flex flex-col gap-2 relative">
              <div className="flex items-center gap-2">
                <label className="text-[12.5px] font-extrabold text-[#172b4d]">T.C. Kimlik No</label>
-               <span className="text-[10px] font-bold text-[#e67e22] flex items-center gap-1.5"><Lock className="w-3 h-3"/> Değiştirilemez</span>
+               {contextFormData.tckn ? (
+                 <span className="text-[10px] font-bold text-[#e67e22] flex items-center gap-1.5"><Lock className="w-3 h-3"/> Değiştirilemez</span>
+               ) : (
+                 <span className="text-[10px] font-bold text-red-500">* Zorunlu Alan</span>
+               )}
              </div>
              <div className="relative">
                <input 
-                  name="tckn" value={formData.tckn} disabled
+                  name="tckn" value={formData.tckn} disabled={Boolean(contextFormData.tckn)}
+                  onChange={(e) => {
+                    // Sadece rakamlara izin ver
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setLocalFormData(prev => ({ ...prev, tckn: val }));
+                  }}
                   type="text" placeholder="11 Haneli TCKN" maxLength={11}
-                  className="w-full h-12 px-4 pr-10 text-[14px] font-semibold rounded-xl border border-gray-100 outline-none transition-all text-[#172b4d] bg-[#f8f9fa] cursor-not-allowed"
+                  className={contextFormData.tckn 
+                    ? "w-full h-12 px-4 pr-10 text-[14px] font-semibold rounded-xl border border-gray-100 outline-none transition-all text-[#172b4d] bg-[#f8f9fa] cursor-not-allowed"
+                    : getInputClass(formData.tckn)}
                 />
-                <Lock className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                {contextFormData.tckn && <Lock className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2" />}
              </div>
-             <div className="flex items-center gap-1.5 mt-0.5">
-                <AlertTriangle className="w-3 h-3 text-[#e67e22]" />
-                <span className="text-[10.5px] font-bold text-[#e67e22]">Hukuki gereklilik nedeniyle değiştirilemez.</span>
-             </div>
+             {contextFormData.tckn && (
+               <div className="flex items-center gap-1.5 mt-0.5">
+                  <AlertTriangle className="w-3 h-3 text-[#e67e22]" />
+                  <span className="text-[10.5px] font-bold text-[#e67e22]">Hukuki gereklilik nedeniyle değiştirilemez.</span>
+               </div>
+             )}
           </div>
 
           <div className="flex flex-col gap-2">
