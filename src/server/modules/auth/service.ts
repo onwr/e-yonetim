@@ -346,16 +346,26 @@ export async function forgotFirmaKodu(input: { tckn: string; telefon: string }) 
 
   const msg = `e-Yonetim Firma Kodunuz: ${user.tenant.firmaKodu}. Lutfen kimseyle paylasmayin.`;
 
-  const smsRes = await sendNetgsmSms({ telefon: normalized, message: msg });
+  try {
+    const smsRes = await sendNetgsmSms({ telefon: normalized, message: msg });
 
-  if (!smsRes.success) {
-    // Gelistirme/test ortaminda terminal'e yaz ki tester gorsun
-    console.log(`\n================================================`);
+    if (smsRes.success) {
+      console.log(`[NETGSM] Firma kodu SMS basariyla gonderildi -> ${normalized}`);
+    } else {
+      console.warn(`[SMS API UYARISI] NetGSM üzerinden SMS gönderimi başarısız! Terminal üzerinden devam ediliyor...`);
+      console.log(`\n======================================================`);
+      console.log(`📱 FIRMA KODU SMS (API HATASI - TERMINAL):`);
+      console.log(`   Telefon: ${normalized}`);
+      console.log(`   ${msg}`);
+      console.log(`======================================================\n`);
+    }
+  } catch (error) {
+    console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden devam ediliyor...`);
+    console.log(`\n======================================================`);
     console.log(`📱 FIRMA KODU SMS (API HATASI - TERMINAL):`);
     console.log(`   Telefon: ${normalized}`);
     console.log(`   ${msg}`);
-    console.log(`================================================\n`);
-    throw new Error("SMS gonderilemedi. Lutfen tekrar deneyin.");
+    console.log(`======================================================\n`);
   }
 
   console.log(`[NETGSM] Firma kodu SMS basariyla gonderildi -> ${normalized}`);

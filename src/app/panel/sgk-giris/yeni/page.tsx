@@ -277,9 +277,16 @@ export default function SgkGirisYeniTalepPage() {
     if (isSubmitting) return;
 
     // Zorunlu alan kontrolü
-    const missingFields = ayarlar.zorunluAlanlar.filter(
-      (f) => !formData[f as keyof SgkGirisFormState]?.toString().trim()
-    );
+    const missingFields = ayarlar.zorunluAlanlar.filter((f) => {
+      if (f === "personelFoto") return !photoUrl;
+      if (f === "mezunOkulAdi" || f === "mezunBolum" || f === "mezuniyetYili" || f === "egitimDurumu") {
+        if (formData.egitimler.length === 0) return true;
+        const indexToProp = { mezunOkulAdi: "okulAdi", mezunBolum: "bolum", mezuniyetYili: "mezuniyetYili", egitimDurumu: "egitimDurumu" } as const;
+        return !formData.egitimler[0]?.[indexToProp[f as keyof typeof indexToProp]]?.trim();
+      }
+      return !formData[f as keyof SgkGirisFormState]?.toString().trim();
+    });
+    
     if (missingFields.length > 0) {
       toast.error("Lütfen tüm zorunlu alanları (*) eksiksiz doldurunuz.");
       return;
@@ -299,7 +306,7 @@ export default function SgkGirisYeniTalepPage() {
         iseBaslamaTarihi: formData.iseBaslamaTarihi,
         netMaasi: formData.netMaasi,
         brutMaasi: formData.brutMaasi,
-        formBilgileri: formData,
+        formBilgileri: { ...formData, profilFotografi: photoUrl || undefined },
       };
       await fetchJsonWithError("/api/v1/talepler", {
         method: "POST",
@@ -463,24 +470,65 @@ export default function SgkGirisYeniTalepPage() {
   ] as Array<keyof SgkGirisFormState>;
 
   useEffect(() => {
+    // Tüm ayarlar.zorunluAlanlar içinden Step 1'e ait olanları bul
+    const req1 = ayarlar.zorunluAlanlar.filter(f => 
+      ['uyrugu', 'tckn', 'ad', 'soyad', 'dogumTarihi', 'dogumYeri', 'cinsiyet', 'medeniHal', 'anaAdi', 'babaAdi', 'kanGrubu', 'surekliIlacKullanimi', 'kullanilanIlacTuru', 'engellilikDurumu', 'engellilikTuru', 'engellilikOrani', 'protezOrtez', 'protezOrtezTuru', 'askerlikDurumu', 'tecilBitisTarihi', 'adliSicilKaydi', 'sabikaTuruAciklama', 'eskiHukumlu', 'cezaNedeni', 'cezaeviGirisTarihi', 'cezaeviCikisTarihi', 'denetimliSerbestlik', 'icraDurumu', 'aktifIcraDosyasiSayisi', 'nafakaDurumu', 'adres', 'il', 'ilce', 'cepTelefonu', 'eposta', 'acilDurumKisisi', 'yakinlik', 'acilDurumTelefon', 'egitimDurumu', 'mezunOkulAdi', 'mezunBolum', 'mezuniyetYili', 'mykBelgesi', 'meslekAdi', 'mykSeviye', 'mykBelgeNo', 'mykBaslangicTarihi', 'mykBitisTarihi', 'ibanNo', 'bankaAdi', 'bankaSube', 'personelFoto'].includes(f)
+    );
     let filled1 = 0;
-    requiredFields1.forEach(field => {
-      if (formData[field] && formData[field].toString().trim() !== '') filled1++;
+    let totalReq1 = req1.length;
+    req1.forEach(f => {
+      if (f === "personelFoto") {
+        if (photoUrl) filled1++;
+      } else if (f === "mezunOkulAdi" || f === "mezunBolum" || f === "mezuniyetYili" || f === "egitimDurumu") {
+        const indexToProp = { mezunOkulAdi: "okulAdi", mezunBolum: "bolum", mezuniyetYili: "mezuniyetYili", egitimDurumu: "egitimDurumu" } as const;
+        if (formData.egitimler.length > 0 && formData.egitimler[0]?.[indexToProp[f as keyof typeof indexToProp]]?.trim()) {
+          filled1++;
+        }
+      } else {
+        if (formData[f as keyof SgkGirisFormState] && formData[f as keyof SgkGirisFormState]?.toString().trim() !== '') {
+          filled1++;
+        }
+      }
     });
-    setProgress1(Math.round((filled1 / requiredFields1.length) * 100));
 
+    // Herhangi bir zorunlu alan yoksa veya hepsi doldurulmuşsa bile, UI için "temel" doluluk hesapla (eğer req1 boşsa)
+    if (totalReq1 === 0) {
+      let f1 = 0;
+      requiredFields1.forEach(field => {
+        if (formData[field] && formData[field].toString().trim() !== '') f1++;
+      });
+      setProgress1(Math.round((f1 / requiredFields1.length) * 100));
+    } else {
+      setProgress1(Math.round((filled1 / totalReq1) * 100));
+    }
+
+    const req2 = ayarlar.zorunluAlanlar.filter(f => 
+      ['firmaAdi', 'subeAdi', 'departman', 'birim', 'gorevi', 'takimi', 'kadroStatusu', 'isyeriLokasyonu', 'netMaasi', 'brutMaasi', 'yemekUcreti', 'yolUcreti', 'servisKullanimi', 'sabitEkOdeme', 'iseBaslamaTarihi', 'mesaiBaslangic', 'mesaiBitis', 'calismaTuru', 'istihdamTuru', 'iseAlimDurumu'].includes(f)
+    );
     let filled2 = 0;
-    requiredFields2.forEach(field => {
-      if (formData[field] && formData[field].toString().trim() !== '') filled2++;
+    let totalReq2 = req2.length;
+    req2.forEach(field => {
+      if (formData[field as keyof SgkGirisFormState] && formData[field as keyof SgkGirisFormState]?.toString().trim() !== '') filled2++;
     });
-    setProgress2(Math.round((filled2 / requiredFields2.length) * 100));
+
+    if (totalReq2 === 0) {
+      let f2 = 0;
+      requiredFields2.forEach(field => {
+        if (formData[field] && formData[field].toString().trim() !== '') f2++;
+      });
+      setProgress2(Math.round((f2 / requiredFields2.length) * 100));
+    } else {
+      setProgress2(Math.round((filled2 / totalReq2) * 100));
+    }
 
     let filled3 = 0;
     if (formData.evraklar && formData.evraklar.length > 0) {
       filled3 = formData.evraklar.filter(e => e.durum === 'yuklendi').length;
       setProgress3(Math.round((filled3 / formData.evraklar.length) * 100));
+    } else if (ayarlar.zorunluEvraklar.length === 0) {
+      setProgress3(100);
     }
-  }, [formData]);
+  }, [formData, photoUrl, ayarlar]);
 
   const updateField = (field: keyof SgkGirisFormState, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
