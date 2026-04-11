@@ -1,0 +1,43 @@
+{
+  "name": "e-yonetim",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint \"src/server/**/*.{ts,tsx}\" \"src/app/api/**/*.ts\" middleware.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.backend.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.2",
+    "lucide-react": "^0.577.0",
+    "next": "16.2.0",
+    "prisma": "^6.17.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "redis": "^5.11.0",
+    "sonner": "^2.0.7",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.2"
+  }
+}
