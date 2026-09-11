@@ -52,12 +52,12 @@ export async function checkPermission(
   // Yetki matrisi hiç tanımlanmamışsa: varsayılan izin ver (setup henüz yapılmamış)
   if (!matrix || typeof matrix !== "object") return;
 
-  const mod = (matrix as Record<string, any>)[moduleId];
+  const mod = (matrix as Record<string, unknown>)[moduleId];
 
   // Bu modül için kayıt yoksa: varsayılan izin ver
   if (!mod || typeof mod !== "object") return;
 
-  const allowed = Boolean(mod[action]);
+  const allowed = Boolean((mod as Record<string, unknown>)[action]);
   if (!allowed) {
     throw unauthorized(`Bu işlem için yetkiniz bulunmamaktadır. (${moduleId}:${action})`);
   }

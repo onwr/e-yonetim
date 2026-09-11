@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { ok } from "@/server/lib/response";
 import { badRequest } from "@/server/lib/errors";
 import { getPuantaj, upsertPuantaj } from "@/server/modules/puantaj/service";
@@ -22,7 +21,7 @@ export const PUT = createAuthorizedRouteHandler("yo_1", "edit", async (request: 
     year: number;
     month: number;
     data: unknown;
-    overtime?: unknown;
+    overtime?: Record<string, unknown>;
     isLocked?: boolean;
   }>;
   await upsertPuantaj(session.tenantId, payload);

@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { ok } from "@/server/lib/response";
 import { getFirma, updateFirma } from "@/server/modules/firma/service";
 import { writeAuditLog } from "@/server/lib/audit";

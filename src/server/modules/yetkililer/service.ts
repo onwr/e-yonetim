@@ -172,7 +172,7 @@ Giris: https://e-yonetim.com/giris`;
       console.log(`Mesaj :\n${smsMsg}`);
       console.log(`======================================================\n`);
     }
-  } catch (error) {
+  } catch {
     console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden bilgileri iletin...`);
     console.log(`\n======================================================`);
     console.log(`✉️ SİSTEM DAVET BİLGİLERİ (API BAŞARISIZ)`);

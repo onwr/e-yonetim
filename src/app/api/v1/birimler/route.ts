@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { created, ok } from "@/server/lib/response";
 import { getPagination } from "@/server/lib/request-context";
 import { createBirim, listBirimler } from "@/server/modules/birimler/service";

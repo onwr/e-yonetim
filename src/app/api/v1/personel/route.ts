@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/server/db/prisma";
-import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { created, ok } from "@/server/lib/response";
 import { getPagination } from "@/server/lib/request-context";
 import { listPersonel } from "@/server/modules/personel/service";

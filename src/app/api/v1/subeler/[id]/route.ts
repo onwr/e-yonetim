@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/server/db/prisma";
 import { notFound } from "@/server/lib/errors";
-import { createProtectedRouteHandler } from "@/server/lib/protected-route";
 import { ok } from "@/server/lib/response";
 
 type Params = { params: Promise<{ id: string }> };

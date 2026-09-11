@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 
 export async function getPuantaj(tenantId: string, year: number, month: number) {
@@ -9,21 +10,21 @@ export async function getPuantaj(tenantId: string, year: number, month: number) 
 
 export async function upsertPuantaj(
   tenantId: string,
-  payload: Array<{ employeeId: string; year: number; month: number; data: unknown; overtime?: any; isLocked?: boolean }>,
+  payload: Array<{ employeeId: string; year: number; month: number; data: unknown; overtime?: Record<string, unknown>; isLocked?: boolean }>,
 ) {
   for (const row of payload) {
     const emp = await prisma.employee.findUnique({
       where: { id: row.employeeId }
     });
 
-    let filteredData = { ...(row.data as object) };
-    let filteredOvertime = row.overtime ? { ...row.overtime } : {};
+    const filteredData: Record<string, unknown> = { ...(row.data as object) };
+    const filteredOvertime: Record<string, unknown> = row.overtime ? { ...row.overtime } : {};
 
     if (emp && emp.personelJson && typeof emp.personelJson === "object") {
-       const pj = emp.personelJson as any;
+       const pj = emp.personelJson as Record<string, unknown>;
        // istenAyrilisTarihi ve iseBaslamaTarihi esas alan adlarıdır
-       const cikisStr = pj?.istenAyrilisTarihi || pj?.cikisTarihi || pj?.sgkCikisTarihi || pj['İşten Çıkış Tarihi'] || null;
-       const girisStr = pj?.iseBaslamaTarihi || pj?.girisTarihi || pj?.sgkGirisTarihi || pj['İşe Giriş Tarihi'] || null;
+       const cikisStr = (pj?.istenAyrilisTarihi || pj?.cikisTarihi || pj?.sgkCikisTarihi || pj['İşten Çıkış Tarihi'] || null) as string | number | Date | null;
+       const girisStr = (pj?.iseBaslamaTarihi || pj?.girisTarihi || pj?.sgkGirisTarihi || pj['İşe Giriş Tarihi'] || null) as string | number | Date | null;
        
        const exitDate = cikisStr ? new Date(cikisStr) : null;
        if (exitDate && !isNaN(exitDate.getTime())) exitDate.setHours(0, 0, 0, 0);
@@ -40,10 +41,8 @@ export async function upsertPuantaj(
          const isBeforeEntry = entryDate && tempDate < entryDate;
          
          if (isAfterExit || isBeforeEntry) {
-           delete (filteredData as any)[day];
-           if (typeof filteredOvertime === "object") {
-             delete (filteredOvertime as any)[day];
-           }
+           delete filteredData[day];
+           delete filteredOvertime[day];
          }
        }
     }
@@ -66,14 +65,14 @@ export async function upsertPuantaj(
           ...filteredData,
           overtime: filteredOvertime,
           isLocked: row.isLocked,
-        },
+        } as Prisma.InputJsonValue,
       },
       update: {
         payload: {
           ...filteredData,
           overtime: filteredOvertime,
           isLocked: row.isLocked,
-        },
+        } as Prisma.InputJsonValue,
       },
     });
   }

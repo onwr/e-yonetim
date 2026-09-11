@@ -4,6 +4,8 @@ import { badRequest, notFound } from "@/server/lib/errors";
 import { buildPersonelPayloadFromSgkGirisForm } from "@/lib/sgkGirisToPersonelPayload";
 import type { SgkGirisFormState } from "@/types";
 
+type BildirimPref = { id: number; push?: boolean };
+
 function mapType(type: string): RequestType {
   if (type === "sgk-giris") return RequestType.SGK_GIRIS;
   if (type === "sgk-cikis") return RequestType.SGK_CIKIS;
@@ -32,11 +34,20 @@ function mapTypeToFrontend(type: RequestType): string {
   return String(type).toLowerCase().replace("_", "-");
 }
 
+type TalepItem = Prisma.RequestGetPayload<{
+  include: {
+    employee: true;
+    approvals: {
+      include: { user: { select: { id: true; adSoyad: true; eposta: true } } };
+    };
+  };
+}>;
+
 /**
  * Request kaydını frontend'in beklediği formata dönüştür.
  * payload JSON'ından adSoyad, tckn, sirket, sube, departman, unvan çıkarır.
  */
-function formatTalep(item: any, approvals?: any[]) {
+function formatTalep(item: TalepItem, approvals?: TalepItem["approvals"]) {
   const payload = item.payload && typeof item.payload === "object" ? (item.payload as Record<string, unknown>) : {};
   const formBilgileri = (payload.formBilgileri ?? payload) as Record<string, unknown>;
 
@@ -177,9 +188,9 @@ export async function createTalep(tenantId: string, type: "sgk-giris" | "sgk-cik
       const prefs = u.preferences && typeof u.preferences === "object" && !Array.isArray(u.preferences)
         ? (u.preferences as Record<string, unknown>)
         : {};
-      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as any[] : null;
+      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as BildirimPref[] : null;
       if (!bildirimler) return true; // Tercih yoksa varsayılan: gönder
-      const pref = bildirimler.find((b: any) => b.id === bildirimId);
+      const pref = bildirimler.find((b) => b.id === bildirimId);
       return pref ? pref.push !== false : true;
     });
 
@@ -318,9 +329,9 @@ export async function updateTalepStatus(input: {
       const prefs = u.preferences && typeof u.preferences === "object" && !Array.isArray(u.preferences)
         ? (u.preferences as Record<string, unknown>)
         : {};
-      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as any[] : null;
+      const bildirimler = Array.isArray(prefs.bildirimler) ? prefs.bildirimler as BildirimPref[] : null;
       if (!bildirimler) return true;
-      const pref = bildirimler.find((b: any) => b.id === 11); // SGK onay/red
+      const pref = bildirimler.find((b) => b.id === 11); // SGK onay/red
       return pref ? pref.push !== false : true;
     });
 

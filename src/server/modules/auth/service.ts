@@ -26,12 +26,20 @@ function generateFirmaKodu() {
   return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
+type RegisterVerificationPayload = {
+  tckn: string;
+  eposta: string;
+  telefon: string;
+  adSoyad: string;
+  sifreHash: string;
+};
+
 async function createAndSendSmsVerification(input: {
   tenantId?: string;
   userId?: string;
   telefon: string;
   type: "register" | "login" | "forgot_password";
-  payload?: any;
+  payload?: Record<string, unknown>;
 }) {
   const code = generateVerificationCode();
   const codeHash = await bcrypt.hash(code, 10);
@@ -63,7 +71,7 @@ async function createAndSendSmsVerification(input: {
       console.log(`🔑 OLUŞTURULAN SMS KODU     : ${code}`);
       console.log(`======================================================\n`);
     }
-  } catch (error) {
+  } catch {
     console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden devam ediliyor...`);
     console.log(`\n======================================================`);
     console.log(`📱 SMS GÖNDERİLECEK TELEFON : ${input.telefon}`);
@@ -199,7 +207,7 @@ export async function verifySmsAndCreateSession(input: {
   }
 
   if (input.type === "register") {
-    const payload = latest.payload as any;
+    const payload = latest.payload as unknown as RegisterVerificationPayload | null;
     if (!payload || !payload.tckn) throw unauthorized("Sistem hatasi: Kayit bilgileri bulunamadi.");
 
     // Cifte kayit kontrolü
@@ -294,7 +302,7 @@ export async function resendSmsVerification(input: { telefon: string; type: "reg
     await createAndSendSmsVerification({
       telefon: normalized,
       type: "register",
-      payload: latestReg.payload
+      payload: latestReg.payload as Record<string, unknown>
     });
     return { success: true as const };
   }
@@ -359,7 +367,7 @@ export async function forgotFirmaKodu(input: { tckn: string; telefon: string }) 
       console.log(`   ${msg}`);
       console.log(`======================================================\n`);
     }
-  } catch (error) {
+  } catch {
     console.warn(`[SMS API HATASI] Servise ulaşılamadı. Terminal üzerinden devam ediliyor...`);
     console.log(`\n======================================================`);
     console.log(`📱 FIRMA KODU SMS (API HATASI - TERMINAL):`);
