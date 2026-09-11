@@ -66,6 +66,23 @@ const ZORUNLU_EVRAKLAR = [
   "Gizlilik Sözleşmesi"
 ];
 
+const STEP1_FIELD_IDS = [
+  'uyrugu', 'tckn', 'ad', 'soyad', 'dogumTarihi', 'dogumYeri', 'cinsiyet', 'medeniHal', 'anaAdi', 'babaAdi',
+  'kanGrubu', 'surekliIlacKullanimi', 'kullanilanIlacTuru', 'engellilikDurumu', 'engellilikTuru', 'engellilikOrani',
+  'protezOrtez', 'protezOrtezTuru', 'askerlikDurumu', 'tecilBitisTarihi', 'adliSicilKaydi', 'sabikaTuruAciklama',
+  'eskiHukumlu', 'cezaNedeni', 'cezaeviGirisTarihi', 'cezaeviCikisTarihi', 'denetimliSerbestlik', 'icraDurumu',
+  'aktifIcraDosyasiSayisi', 'nafakaDurumu', 'adres', 'il', 'ilce', 'cepTelefonu', 'eposta', 'acilDurumKisisi',
+  'yakinlik', 'acilDurumTelefon', 'egitimDurumu', 'mezunOkulAdi', 'mezunBolum', 'mezuniyetYili', 'mykBelgesi',
+  'meslekAdi', 'mykSeviye', 'mykBelgeNo', 'mykBaslangicTarihi', 'mykBitisTarihi', 'ibanNo', 'bankaAdi',
+  'bankaSube', 'personelFoto'
+];
+
+const STEP2_FIELD_IDS = [
+  'firmaAdi', 'subeAdi', 'departman', 'birim', 'gorevi', 'takimi', 'kadroStatusu', 'isyeriLokasyonu', 'netMaasi',
+  'brutMaasi', 'yemekUcreti', 'yolUcreti', 'servisKullanimi', 'sabitEkOdeme', 'iseBaslamaTarihi', 'mesaiBaslangic',
+  'mesaiBitis', 'calismaTuru', 'istihdamTuru', 'iseAlimDurumu'
+];
+
 // Yardımcı Form Bileşenleri
 const TextField = ({ label, value, onChange, placeholder = "", type = "text", required = false, disabled = false }: any) => (
   <div className={`flex flex-col gap-1.5 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -273,11 +290,11 @@ export default function SgkGirisYeniTalepPage() {
     })();
   }, []);
 
-  const handleFormSubmit = async () => {
-    if (isSubmitting) return;
-
-    // Zorunlu alan kontrolü
-    const missingFields = ayarlar.zorunluAlanlar.filter((f) => {
+  // Verilen zorunlu alan id listesinden hangilerinin hala boş olduğunu döndürür.
+  // Hem adım geçişlerinde hem de nihai gönderimde aynı kontrol mantığı kullanılır.
+  const getMissingFieldIds = (fieldIds: string[]) => {
+    return ayarlar.zorunluAlanlar.filter((f) => {
+      if (!fieldIds.includes(f)) return false;
       if (f === "personelFoto") return !photoUrl;
       if (f === "mezunOkulAdi" || f === "mezunBolum" || f === "mezuniyetYili" || f === "egitimDurumu") {
         if (formData.egitimler.length === 0) return true;
@@ -286,7 +303,14 @@ export default function SgkGirisYeniTalepPage() {
       }
       return !formData[f as keyof SgkGirisFormState]?.toString().trim();
     });
-    
+  };
+
+  const handleFormSubmit = async () => {
+    if (isSubmitting) return;
+
+    // Zorunlu alan kontrolü (tüm adımlar)
+    const missingFields = getMissingFieldIds(ayarlar.zorunluAlanlar);
+
     if (missingFields.length > 0) {
       toast.error("Lütfen tüm zorunlu alanları (*) eksiksiz doldurunuz.");
       return;
@@ -471,9 +495,7 @@ export default function SgkGirisYeniTalepPage() {
 
   useEffect(() => {
     // Tüm ayarlar.zorunluAlanlar içinden Step 1'e ait olanları bul
-    const req1 = ayarlar.zorunluAlanlar.filter(f => 
-      ['uyrugu', 'tckn', 'ad', 'soyad', 'dogumTarihi', 'dogumYeri', 'cinsiyet', 'medeniHal', 'anaAdi', 'babaAdi', 'kanGrubu', 'surekliIlacKullanimi', 'kullanilanIlacTuru', 'engellilikDurumu', 'engellilikTuru', 'engellilikOrani', 'protezOrtez', 'protezOrtezTuru', 'askerlikDurumu', 'tecilBitisTarihi', 'adliSicilKaydi', 'sabikaTuruAciklama', 'eskiHukumlu', 'cezaNedeni', 'cezaeviGirisTarihi', 'cezaeviCikisTarihi', 'denetimliSerbestlik', 'icraDurumu', 'aktifIcraDosyasiSayisi', 'nafakaDurumu', 'adres', 'il', 'ilce', 'cepTelefonu', 'eposta', 'acilDurumKisisi', 'yakinlik', 'acilDurumTelefon', 'egitimDurumu', 'mezunOkulAdi', 'mezunBolum', 'mezuniyetYili', 'mykBelgesi', 'meslekAdi', 'mykSeviye', 'mykBelgeNo', 'mykBaslangicTarihi', 'mykBitisTarihi', 'ibanNo', 'bankaAdi', 'bankaSube', 'personelFoto'].includes(f)
-    );
+    const req1 = ayarlar.zorunluAlanlar.filter(f => STEP1_FIELD_IDS.includes(f));
     let filled1 = 0;
     let totalReq1 = req1.length;
     req1.forEach(f => {
@@ -502,9 +524,7 @@ export default function SgkGirisYeniTalepPage() {
       setProgress1(Math.round((filled1 / totalReq1) * 100));
     }
 
-    const req2 = ayarlar.zorunluAlanlar.filter(f => 
-      ['firmaAdi', 'subeAdi', 'departman', 'birim', 'gorevi', 'takimi', 'kadroStatusu', 'isyeriLokasyonu', 'netMaasi', 'brutMaasi', 'yemekUcreti', 'yolUcreti', 'servisKullanimi', 'sabitEkOdeme', 'iseBaslamaTarihi', 'mesaiBaslangic', 'mesaiBitis', 'calismaTuru', 'istihdamTuru', 'iseAlimDurumu'].includes(f)
-    );
+    const req2 = ayarlar.zorunluAlanlar.filter(f => STEP2_FIELD_IDS.includes(f));
     let filled2 = 0;
     let totalReq2 = req2.length;
     req2.forEach(field => {
@@ -1089,13 +1109,12 @@ export default function SgkGirisYeniTalepPage() {
                 toast.error("Geçerli bir T.C. Kimlik Numarası giriniz.");
                 return;
               }
-              if (progress1 < 100) {
-                toast.error(`Zorunlu alanların henüz %${progress1} kısmını tamamladınız. Lütfen eksik alanları doldurunuz.`);
-                setCurrentStep(2);
-              } else {
-                toast.success("Bilgiler başarıyla kaydedildi, 2. Adıma geçiliyor!");
-                setCurrentStep(2);
+              if (getMissingFieldIds(STEP1_FIELD_IDS).length > 0) {
+                toast.error("Lütfen bu adımdaki tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+                return;
               }
+              toast.success("Bilgiler başarıyla kaydedildi, 2. Adıma geçiliyor!");
+              setCurrentStep(2);
             }}
             disabled={isKisitli}
             className="bg-[#5c6e91] hover:bg-[#172b4d] disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl text-[14px] font-bold transition-colors shadow-sm"
@@ -1244,13 +1263,12 @@ export default function SgkGirisYeniTalepPage() {
           </button>
           <button
             onClick={() => {
-              if (progress2 < 100) {
-                toast.error(`Zorunlu alanların henüz %${progress2} kısmını tamamladınız. Lütfen eksik alanları doldurunuz.`);
-                setCurrentStep(3);
-              } else {
-                toast.success("Bilgiler başarıyla kaydedildi, 3. Adıma geçiliyor!");
-                setCurrentStep(3);
+              if (getMissingFieldIds(STEP2_FIELD_IDS).length > 0) {
+                toast.error("Lütfen bu adımdaki tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+                return;
               }
+              toast.success("Bilgiler başarıyla kaydedildi, 3. Adıma geçiliyor!");
+              setCurrentStep(3);
             }}
             className="bg-[#5c6e91] hover:bg-[#172b4d] text-white px-8 py-3 rounded-xl text-[14px] font-bold transition-colors shadow-sm"
           >
