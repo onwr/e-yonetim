@@ -15,18 +15,16 @@
     "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
-    "@prisma/client": "^6.17.1",
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.2",
     "lucide-react": "^0.577.0",
-    "next": "16.2.0",
-    "prisma": "^6.17.1",
+    "next": "16.3.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "redis": "^5.11.0",
     "sonner": "^2.0.7",
     "uuid": "^13.0.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -35,9 +33,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.0",
+    "eslint-config-next": "^16.3.4",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "xlsx": "^0.18.5"
   }
 }
