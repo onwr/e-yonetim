@@ -48,6 +48,10 @@ export default function Giris() {
           return;
         }
         toast.success("Bilgiler doğru. SMS doğrulaması gerekiyor.");
+        // TODO(temp): SMS servisi canliya alinca bu blogu kaldir.
+        if (response.devSmsKodu) {
+          toast.success(`SMS gelmediyse doğrulama kodunuz: ${response.devSmsKodu}`, { duration: 15000 });
+        }
         setTelefon(response.telefon);         // masked - for display
         setRawTelefon(response.rawTelefon ?? response.telefon ?? ""); // real - for verify
         setStep(2);

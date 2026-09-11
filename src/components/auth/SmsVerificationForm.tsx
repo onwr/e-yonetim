@@ -125,8 +125,12 @@ export default function SmsVerificationForm({
               void (async () => {
                 try {
                   setIsResending(true);
-                  await AuthService.resendSms({ telefon: apiTelefon, type });
+                  const res = await AuthService.resendSms({ telefon: apiTelefon, type });
                   toast.success("Yeni SMS kodu gönderildi.");
+                  // TODO(temp): SMS servisi canliya alinca bu blogu kaldir.
+                  if (res.devSmsKodu) {
+                    toast.success(`SMS gelmediyse doğrulama kodunuz: ${res.devSmsKodu}`, { duration: 15000 });
+                  }
                   setTimeLeft(270);
                   setSmsKodu("");
                   setIsWrongCode(false);

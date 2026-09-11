@@ -10,5 +10,9 @@ export const POST = createRouteHandler(async (request: NextRequest) => {
   checkRateLimit(request, "auth-forgot-password");
   const payload = validateSchema(forgotPasswordSchema, await request.json());
   const res = await sendForgotPasswordSms(payload);
-  return ok({ message: "Sifre sifirlama kodunuz SMS olarak gonderildi.", telefon: res.telefon });
+  return ok({
+    message: "Sifre sifirlama kodunuz SMS olarak gonderildi.",
+    telefon: res.telefon,
+    devSmsKodu: res.devSmsKodu, // TODO(temp): SMS canliya alinca kaldir
+  });
 });

@@ -9,7 +9,7 @@ import { checkRateLimit } from "@/server/lib/rate-limit";
 export const POST = createRouteHandler(async (request: NextRequest) => {
   checkRateLimit(request, "auth-resend-sms");
   const payload = validateSchema(resendSmsSchema, await request.json());
-  await resendSmsVerification(payload);
-  return ok({ message: "SMS kodu yeniden gonderildi." });
+  const result = await resendSmsVerification(payload);
+  return ok({ message: "SMS kodu yeniden gonderildi.", devSmsKodu: result.devSmsKodu }); // TODO(temp): SMS canliya alinca kaldir
 });
 

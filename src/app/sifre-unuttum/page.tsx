@@ -60,8 +60,12 @@ export default function SifreUnuttum() {
     if (!isSifreFormValid || isLoading) return;
     setIsLoading(true);
     try {
-      await AuthService.sendForgotPasswordSms({ firmaKodu, tckn, telefon });
+      const res = await AuthService.sendForgotPasswordSms({ firmaKodu, tckn, telefon });
       toast.success("Şifre sıfırlama kodunuz SMS olarak gönderildi.");
+      // TODO(temp): SMS servisi canliya alinca bu blogu kaldir.
+      if (res.devSmsKodu) {
+        toast.success(`SMS gelmediyse doğrulama kodunuz: ${res.devSmsKodu}`, { duration: 15000 });
+      }
       setStep(2);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "İşlem başarısız.");

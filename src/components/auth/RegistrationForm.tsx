@@ -44,6 +44,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (data: { te
       const response = await AuthService.register({ adSoyad, tckn, eposta, telefon, sifre, kvkkOnay });
       if (response.success) {
         toast.success("Kayıt başarılı. SMS doğrulama adımına geçiliyor.");
+        // TODO(temp): SMS servisi canliya alinca bu blogu kaldir.
+        if (response.devSmsKodu) {
+          toast.success(`SMS gelmediyse doğrulama kodunuz: ${response.devSmsKodu}`, { duration: 15000 });
+        }
         onSuccess({ telefon: response.telefon, adSoyad, tckn, eposta, firmaKodu: response.firmaKodu, smsBypassed: response.smsBypassed });
       }
     } catch (error) {

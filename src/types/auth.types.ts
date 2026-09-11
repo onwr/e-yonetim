@@ -9,9 +9,10 @@ export interface RegisterRequestDTO {
 export interface RegisterResponseDTO {
   success: boolean;
   message: string;
-  telefon: string; 
+  telefon: string;
   firmaKodu?: string;
   smsBypassed?: boolean;
+  devSmsKodu?: string; // TODO(temp): SMS canliya alinca kaldir
 }
 export interface LoginRequestDTO {
   firmaKodu: string;
@@ -21,10 +22,11 @@ export interface LoginRequestDTO {
 export interface LoginResponseDTO {
   success: boolean;
   message: string;
-  token?: string; 
+  token?: string;
   telefon?: string;       // masked - display only
   rawTelefon?: string;    // real - used for SMS verify API
   smsBypassed?: boolean;
+  devSmsKodu?: string; // TODO(temp): SMS canliya alinca kaldir
 }
 export interface SmsVerifyRequestDTO {
   telefon: string;

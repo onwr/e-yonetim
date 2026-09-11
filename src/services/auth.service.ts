@@ -32,7 +32,7 @@ async function requestJson<T>(url: string, payload?: unknown): Promise<T> {
 
 export const AuthService = {
   async register(data: RegisterRequestDTO): Promise<RegisterResponseDTO> {
-    const apiData = await requestJson<{ message: string; telefon: string; firmaKodu?: string; smsBypassed?: boolean }>(
+    const apiData = await requestJson<{ message: string; telefon: string; firmaKodu?: string; smsBypassed?: boolean; devSmsKodu?: string }>(
       "/api/v1/auth/register",
       data,
     );
@@ -42,10 +42,11 @@ export const AuthService = {
       telefon: apiData.telefon,
       firmaKodu: apiData.firmaKodu,
       smsBypassed: apiData.smsBypassed,
+      devSmsKodu: apiData.devSmsKodu, // TODO(temp): SMS canliya alinca kaldir
     };
   },
   async login(data: LoginRequestDTO): Promise<LoginResponseDTO> {
-    const apiData = await requestJson<{ message: string; telefon: string; maskedTelefon?: string; smsBypassed?: boolean }>(
+    const apiData = await requestJson<{ message: string; telefon: string; maskedTelefon?: string; smsBypassed?: boolean; devSmsKodu?: string }>(
       "/api/v1/auth/login",
       data,
     );
@@ -55,6 +56,7 @@ export const AuthService = {
       telefon: apiData.maskedTelefon ?? apiData.telefon, // display (masked)
       rawTelefon: apiData.telefon,                       // real phone for verify
       smsBypassed: apiData.smsBypassed,
+      devSmsKodu: apiData.devSmsKodu, // TODO(temp): SMS canliya alinca kaldir
     };
   },
   async verifySms(data: SmsVerifyRequestDTO): Promise<SmsVerifyResponseDTO> {
@@ -69,17 +71,17 @@ export const AuthService = {
       token: apiData.token,
     };
   },
-  async resendSms(data: { telefon: string; type: "register" | "login" | "forgot_password" }): Promise<{ success: boolean; message: string }> {
-    const apiData = await requestJson<{ message: string }>("/api/v1/auth/resend-sms", data);
-    return { success: true, message: apiData.message };
+  async resendSms(data: { telefon: string; type: "register" | "login" | "forgot_password" }): Promise<{ success: boolean; message: string; devSmsKodu?: string }> {
+    const apiData = await requestJson<{ message: string; devSmsKodu?: string }>("/api/v1/auth/resend-sms", data);
+    return { success: true, message: apiData.message, devSmsKodu: apiData.devSmsKodu }; // TODO(temp): SMS canliya alinca kaldir
   },
   async forgotFirmaKodu(data: { tckn: string; telefon: string }): Promise<{ success: boolean; message: string }> {
     const apiData = await requestJson<{ message: string }>("/api/v1/auth/forgot-firma-kodu", data);
     return { success: true, message: apiData.message };
   },
-  async sendForgotPasswordSms(data: { firmaKodu: string; tckn: string; telefon: string }): Promise<{ success: boolean; message: string; telefon: string }> {
-    const apiData = await requestJson<{ message: string; telefon: string }>("/api/v1/auth/forgot-password-sms", data);
-    return { success: true, message: apiData.message, telefon: apiData.telefon };
+  async sendForgotPasswordSms(data: { firmaKodu: string; tckn: string; telefon: string }): Promise<{ success: boolean; message: string; telefon: string; devSmsKodu?: string }> {
+    const apiData = await requestJson<{ message: string; telefon: string; devSmsKodu?: string }>("/api/v1/auth/forgot-password-sms", data);
+    return { success: true, message: apiData.message, telefon: apiData.telefon, devSmsKodu: apiData.devSmsKodu }; // TODO(temp): SMS canliya alinca kaldir
   },
   async resetPassword(data: { telefon: string; yeniSifre: string }): Promise<{ success: boolean; message: string }> {
     const apiData = await requestJson<{ message: string }>("/api/v1/auth/reset-password", data);

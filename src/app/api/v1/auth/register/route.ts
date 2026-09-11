@@ -15,5 +15,6 @@ export const POST = createRouteHandler(async (request: NextRequest) => {
     telefon: result.telefon,
     firmaKodu: result.firmaKodu,
     smsBypassed: result.smsBypassed,
+    devSmsKodu: result.devSmsKodu, // TODO(temp): SMS canliya alinca kaldir
   });
 });
