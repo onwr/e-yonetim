@@ -83,6 +83,32 @@ const STEP2_FIELD_IDS = [
   'mesaiBitis', 'calismaTuru', 'istihdamTuru', 'iseAlimDurumu'
 ];
 
+// Zorunlu alan hata mesajlarında kullanıcıya hangi alanın eksik olduğunu göstermek için.
+const FIELD_LABELS: Record<string, string> = {
+  uyrugu: 'Uyruğu', tckn: 'T.C. Kimlik Numarası', ad: 'Adı', soyad: 'Soyadı', dogumTarihi: 'Doğum Tarihi',
+  dogumYeri: 'Doğum Yeri', cinsiyet: 'Cinsiyet', medeniHal: 'Medeni Hali', anaAdi: 'Ana Adı', babaAdi: 'Baba Adı',
+  personelFoto: 'Personel Fotoğrafı', kanGrubu: 'Kan Grubu', surekliIlacKullanimi: 'Sürekli İlaç Kullanımı',
+  kullanilanIlacTuru: 'Kullanılan İlaç Türü', engellilikDurumu: 'Engellilik Durumu', engellilikTuru: 'Engellilik Türü',
+  engellilikOrani: 'Engellilik Oranı', protezOrtez: 'Protez/Ortez Kullanımı', protezOrtezTuru: 'Protez/Ortez Türü',
+  askerlikDurumu: 'Askerlik Durumu', tecilBitisTarihi: 'Tecil Bitiş Tarihi', adliSicilKaydi: 'Adli Sicil Kaydı',
+  sabikaTuruAciklama: 'Sabıka Türü/Açıklama', eskiHukumlu: 'Eski Hükümlü Durumu', cezaNedeni: 'Ceza Nedeni',
+  cezaeviGirisTarihi: 'Cezaevi Giriş Tarihi', cezaeviCikisTarihi: 'Cezaevi Çıkış Tarihi',
+  denetimliSerbestlik: 'Denetimli Serbestlik Durumu', icraDurumu: 'İcra Durumu',
+  aktifIcraDosyasiSayisi: 'Aktif İcra Dosyası Sayısı', nafakaDurumu: 'Nafaka Durumu', adres: 'Adres', il: 'İl',
+  ilce: 'İlçe', cepTelefonu: 'Cep Telefonu', eposta: 'E-Posta', acilDurumKisisi: 'Acil Durum Kişisi',
+  yakinlik: 'Acil Durum Kişisi Yakınlığı', acilDurumTelefon: 'Acil Durum Telefonu', egitimDurumu: 'Eğitim Durumu',
+  mezunOkulAdi: 'Mezun Olunan Okul', mezunBolum: 'Mezun Olunan Bölüm', mezuniyetYili: 'Mezuniyet Yılı',
+  mykBelgesi: 'MYK Belgesi', meslekAdi: 'Meslek Adı', mykSeviye: 'MYK Seviyesi', mykBelgeNo: 'MYK Belge No',
+  mykBaslangicTarihi: 'MYK Düzenleme Tarihi', mykBitisTarihi: 'MYK Geçerlilik Tarihi', ibanNo: 'IBAN',
+  bankaAdi: 'Banka Adı', bankaSube: 'Banka Şubesi', firmaAdi: 'Firma Adı', subeAdi: 'Şube Adı',
+  departman: 'Departman', birim: 'Birim', gorevi: 'Görevi/Mesleği', takimi: 'Takımı/Sınıfı',
+  kadroStatusu: 'Kadro Statüsü', isyeriLokasyonu: 'İşyeri Lokasyonu', netMaasi: 'Net Maaş', brutMaasi: 'Brüt Maaş',
+  yemekUcreti: 'Yemek Ücreti', yolUcreti: 'Yol Ücreti', servisKullanimi: 'Servis Kullanımı',
+  sabitEkOdeme: 'Sabit Ek Ödeme', iseBaslamaTarihi: 'İşe Başlama Tarihi', mesaiBaslangic: 'Mesai Başlangıç Saati',
+  mesaiBitis: 'Mesai Bitiş Saati', calismaTuru: 'Çalışma Türü', istihdamTuru: 'İstihdam Türü',
+  iseAlimDurumu: 'İşe Alım Durumu',
+};
+
 // Yardımcı Form Bileşenleri
 const TextField = ({ label, value, onChange, placeholder = "", type = "text", required = false, disabled = false }: any) => (
   <div className={`flex flex-col gap-1.5 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -312,7 +338,8 @@ export default function SgkGirisYeniTalepPage() {
     const missingFields = getMissingFieldIds(ayarlar.zorunluAlanlar);
 
     if (missingFields.length > 0) {
-      toast.error("Lütfen tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+      const isimler = missingFields.map((f) => FIELD_LABELS[f] ?? f).join(", ");
+      toast.error(`Eksik zorunlu alan(lar): ${isimler}`, { duration: 8000 });
       return;
     }
 
@@ -1109,8 +1136,10 @@ export default function SgkGirisYeniTalepPage() {
                 toast.error("Geçerli bir T.C. Kimlik Numarası giriniz.");
                 return;
               }
-              if (getMissingFieldIds(STEP1_FIELD_IDS).length > 0) {
-                toast.error("Lütfen bu adımdaki tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+              const missingStep1 = getMissingFieldIds(STEP1_FIELD_IDS);
+              if (missingStep1.length > 0) {
+                const isimler = missingStep1.map((f) => FIELD_LABELS[f] ?? f).join(", ");
+                toast.error(`Eksik zorunlu alan(lar): ${isimler}`, { duration: 8000 });
                 return;
               }
               toast.success("Bilgiler başarıyla kaydedildi, 2. Adıma geçiliyor!");
@@ -1263,8 +1292,10 @@ export default function SgkGirisYeniTalepPage() {
           </button>
           <button
             onClick={() => {
-              if (getMissingFieldIds(STEP2_FIELD_IDS).length > 0) {
-                toast.error("Lütfen bu adımdaki tüm zorunlu alanları (*) eksiksiz doldurunuz.");
+              const missingStep2 = getMissingFieldIds(STEP2_FIELD_IDS);
+              if (missingStep2.length > 0) {
+                const isimler = missingStep2.map((f) => FIELD_LABELS[f] ?? f).join(", ");
+                toast.error(`Eksik zorunlu alan(lar): ${isimler}`, { duration: 8000 });
                 return;
               }
               toast.success("Bilgiler başarıyla kaydedildi, 3. Adıma geçiliyor!");
